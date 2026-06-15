@@ -558,8 +558,8 @@
             const isChecked = toggle.checked;
 
             if (isChecked) {
-                const password = prompt("보안 접근 키를 입력하세요. (테스트 암호: 1234)", "");
-                if (password === "1234") {
+                const password = prompt("보안 접근 키를 입력하세요.", "");
+                if (password === "260326") {
                     systemState.isAdmin = true;
                     showToast("OPERATOR AUTHORIZATION GRANTED.");
                 } else {

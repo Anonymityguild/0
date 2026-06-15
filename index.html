@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anonymity Guild Tactical Roster</title>
+    <!-- Tailwind CSS CDN 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700&display=swap');
+        
+        :root {
+            --font-game: 'Orbitron', 'Noto Sans KR', sans-serif;
+        }
+
+        body {
+            font-family: var(--font-game);
+            background-color: #030408;
+            overflow-x: hidden;
+        }
+
+        /* 캔버스 배경 레이어 전체화면 고정 */
+        #starfield {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+            filter: blur(0.5px); /* 은은하고 흐릿한 연출을 위한 미세 블러 */
+        }
+
+        /* 스크롤바 커스텀 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #030408;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #121526;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #1e223c;
+        }
+
+        /* 호버 시 지정된 동적 변수 기반으로 빛 발산 연출 */
+        .char-card {
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .char-card:hover {
+            transform: translateY(-6px) scale(1.02);
+            box-shadow: 0 0 30px var(--glow-color, rgba(0, 240, 255, 0.15));
+            border-color: var(--accent-color, #00f0ff);
+        }
+
+        /* 카드 그리드 정렬 패턴의 은은한 대비 */
+        .grid-pattern {
+            background-image: linear-gradient(rgba(255, 255, 255, 0.005) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255, 255, 255, 0.005) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100 flex flex-col justify-between grid-pattern relative">
+
+    <!-- 별빛 우주 배경 캔버스 (매우 천천히 일렁임 - 화면 100% 가득 채움) -->
+    <canvas id="starfield"></canvas>
+
+    <!-- 인터페이스 상단 레이어 구성 -->
+    <header class="relative z-10 border-b border-slate-900/60 bg-slate-950/40 backdrop-blur-md sticky top-0">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="text-center sm:text-left">
+                <div class="flex items-center justify-center sm:justify-start gap-3">
+                    <span class="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
+                    <h1 class="text-xl md:text-2xl font-black tracking-widest text-white uppercase">Anonymity Guild</h1>
+                </div>
+                <p class="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">Guild Roster Database</p>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <!-- 운영자 모드 승인 스위치 -->
+                <div class="flex items-center gap-2 bg-slate-950/80 px-3 py-1.5 rounded-full border border-slate-900">
+                    <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Admin Access</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="adminToggle" onchange="toggleAdminMode()" class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500/80 peer-checked:after:bg-black"></div>
+                    </label>
+                </div>
+
+                <!-- 운영자 전용 버튼 (평소 숨김) -->
+                <button id="adminRegistryBtn" onclick="openAddModal()" class="hidden px-4 py-2 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 hover:from-slate-900 hover:to-slate-950 text-white font-bold text-xs tracking-wider rounded border border-slate-850 transition-all duration-300 shadow-lg flex items-center gap-2">
+                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    REGISTRY OPERATOR (길드원 추가)
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 대시보드 구조 설정 -->
+    <main class="relative z-10 max-w-7xl w-full mx-auto px-6 py-8 flex-grow flex flex-col gap-6">
+        
+        <!-- 실시간 통계 및 제어판 요약 영역 -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 bg-slate-950/40 p-4 rounded-lg border border-slate-900/60 backdrop-blur-md">
+            
+            <!-- 필터 및 검색 제어 영역 (8열) -->
+            <div class="lg:col-span-8 flex flex-col md:flex-row items-stretch md:items-center gap-3">
+                <!-- 역할 필터링 탭 -->
+                <div class="flex p-1 bg-slate-950/90 rounded border border-slate-900 gap-1 self-start" id="filterContainer">
+                    <button onclick="setFilter('all')" class="filter-btn px-3 py-1.5 rounded text-[10px] font-bold tracking-wider transition-all duration-300 bg-cyan-500/20 text-cyan-400 border border-cyan-500/20" data-filter="all">ALL</button>
+                    <button onclick="setFilter('dealer')" class="filter-btn px-3 py-1.5 rounded text-[10px] font-bold tracking-wider transition-all duration-300 text-slate-500 hover:text-white" data-filter="dealer">DEALER</button>
+                    <button onclick="setFilter('tanker')" class="filter-btn px-3 py-1.5 rounded text-[10px] font-bold tracking-wider transition-all duration-300 text-slate-500 hover:text-white" data-filter="tanker">TANKER</button>
+                    <button onclick="setFilter('healer')" class="filter-btn px-3 py-1.5 rounded text-[10px] font-bold tracking-wider transition-all duration-300 text-slate-500 hover:text-white" data-filter="healer">HEALER</button>
+                </div>
+
+                <!-- 검색창 입력 영역 -->
+                <div class="relative flex-grow">
+                    <input type="text" id="searchInput" oninput="onSearchChange(this.value)" placeholder="길드원 검색..." class="w-full bg-black/60 border border-slate-900 rounded px-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-800 transition-all">
+                    <span class="absolute right-3 top-2.5 text-slate-600">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </span>
+                </div>
+
+                <!-- 정렬 조건 선택 -->
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-slate-600 font-bold uppercase whitespace-nowrap">Sort</span>
+                    <select id="sortSelect" onchange="onSortChange(this.value)" class="bg-black border border-slate-900 rounded px-2 py-1.5 text-xs text-slate-400 focus:outline-none focus:border-slate-800">
+                        <option value="recent">최신 가입순</option>
+                        <option value="name">이름 가나다순</option>
+                        <option value="power">투력 랭킹순</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- 하이엔드 요약 통계 정보 (4열) -->
+            <div class="lg:col-span-4 flex items-center justify-around text-center px-2 bg-slate-950/20 rounded border border-slate-900/40 py-2 lg:py-0">
+                <div>
+                    <div class="text-[9px] text-slate-600 font-bold uppercase tracking-wider">Total Active</div>
+                    <div class="text-xs font-black text-white" id="statTotal">0</div>
+                </div>
+                <div class="h-6 w-px bg-slate-900/60"></div>
+                <div>
+                    <div class="text-[9px] text-red-500/60 font-bold uppercase tracking-wider">Dealers</div>
+                    <div class="text-xs font-black text-red-400" id="statDealer">0</div>
+                </div>
+                <div class="h-6 w-px bg-slate-900/60"></div>
+                <div>
+                    <div class="text-[9px] text-green-500/60 font-bold uppercase tracking-wider">Tanks</div>
+                    <div class="text-xs font-black text-green-400" id="statTanker">0</div>
+                </div>
+                <div class="h-6 w-px bg-slate-900/60"></div>
+                <div>
+                    <div class="text-[9px] text-cyan-500/60 font-bold uppercase tracking-wider">Heals</div>
+                    <div class="text-xs font-black text-cyan-400" id="statHealer">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 길드원 슬롯 배치 영역 (각 카드는 3:4 프레임 고정 반영) -->
+        <div id="cardGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <!-- JS 로더에 의해 동적 생성 -->
+        </div>
+    </main>
+
+    <!-- 하단 라이선스 구획 -->
+    <footer class="relative z-10 border-t border-slate-950 bg-slate-950/20 py-6 text-center text-[9px] text-slate-850 tracking-wider uppercase font-mono">
+        <p>&copy; 2026 Anonymity Guild. Custom Tactical Terminal Systems.</p>
+    </footer>
+
+    <!-- 개별 상세 디렉토리 뷰어 (중앙 팝업 형태) -->
+    <div id="detailModal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div id="detailPanel" class="bg-gradient-to-b from-slate-950 to-black border border-slate-900 rounded-xl p-6 shadow-2xl relative overflow-hidden flex flex-col gap-6 max-w-sm w-full transition-all duration-300 transform scale-95 opacity-0">
+            <!-- 성단 격자 배경 효과 -->
+            <div class="absolute inset-0 grid-pattern opacity-5 pointer-events-none"></div>
+
+            <!-- 1. 이름 및 클래스 뱃지 영역 -->
+            <div class="relative flex items-center justify-between pb-3 border-b border-slate-900/80 z-10">
+                <div>
+                    <span id="detailClassBadge" class="text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded border uppercase">DEALER</span>
+                    <h2 id="detailName" class="text-xl font-bold text-white mt-1.5 tracking-wide">알파슬레이어</h2>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="closeDetailModal()" class="text-slate-500 hover:text-white transition-all cursor-pointer p-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. 이미지 프레임 (3:4 종횡비 엄격 준수) -->
+            <div class="relative aspect-[3/4] max-w-[280px] mx-auto w-full rounded-lg bg-black/80 border border-slate-900/60 flex items-center justify-center overflow-hidden z-10">
+                <div class="absolute inset-0 grid-pattern opacity-[0.03]"></div>
+                <img id="detailImage" src="" alt="길드원 전술 이미지" onerror="handleImageLoadError(this)" class="w-full h-full object-cover transition-all duration-500">
+                <div id="imagePlaceholder" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-slate-950 text-slate-800">
+                    <div id="imagePlaceholderIcon" class="text-6xl mb-2 filter drop-shadow">👤</div>
+                    <span class="text-[8px] font-mono tracking-widest text-slate-600 uppercase">Anonymity Profile Backup</span>
+                </div>
+            </div>
+
+            <!-- 3. 전투력 정보 구획 (단순히 수치만 강조) -->
+            <div class="bg-slate-950/60 border border-slate-900/80 p-3 rounded-lg z-10 relative">
+                <div class="text-[9px] text-slate-600 font-bold uppercase tracking-wider font-mono">전투력 (POWER)</div>
+                <div class="flex items-baseline gap-1.5 mt-1">
+                    <span id="detailPower" class="text-2xl font-black text-white tracking-widest font-mono">0</span>
+                </div>
+            </div>
+
+            <!-- 4. 다중 지향색 수동 설정 리스트 -->
+            <div class="z-10 bg-slate-950/20 border border-slate-900/40 p-3 rounded-lg flex flex-col gap-2">
+                <div class="text-[9px] text-slate-600 font-bold uppercase tracking-wider font-mono">지향색 (PREFERRED COLORS)</div>
+                <div id="detailColorsContainer" class="flex flex-wrap items-center gap-3">
+                    <!-- JS에 의해 서클 배지 형태로 로딩됨 -->
+                </div>
+            </div>
+
+            <!-- 5. 길드원 한마디 기치 -->
+            <div class="z-10 bg-slate-950/40 p-3 rounded-lg border border-slate-900/30">
+                <div class="text-[9px] text-slate-600 font-bold uppercase tracking-wider mb-1.5">한마디 (MOTTO)</div>
+                <p id="detailDesc" class="text-xs text-slate-300 italic leading-relaxed">"최선의 방어는 압도적인 파괴입니다."</p>
+            </div>
+
+            <!-- 운영자 전용 제어 단독 인터페이스 (Admin Access 활성화 시 해제) -->
+            <div id="adminControls" class="hidden pt-4 border-t border-slate-900/80 grid grid-cols-2 gap-3 z-10">
+                <button onclick="requestDecommission()" class="py-2 bg-red-950/20 border border-red-900/50 hover:bg-red-900/30 text-red-300 rounded text-[10px] font-bold tracking-wider uppercase transition-all duration-300">
+                    DECOMMISSION (제명)
+                </button>
+                <button onclick="triggerEditMember()" class="py-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-cyan-400 rounded text-[10px] font-bold tracking-wider uppercase transition-all duration-300">
+                    MODIFY SPEC (수정)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 신규 길드원 등록 및 수정 콘솔 (모달 오버레이) -->
+    <div id="addModal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border border-slate-900 max-w-lg w-full rounded-lg shadow-2xl p-6 relative overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div class="absolute inset-0 grid-pattern opacity-5 pointer-events-none"></div>
+            
+            <div class="flex justify-between items-center pb-4 border-b border-slate-900 mb-6">
+                <h3 id="modalTitle" class="text-base font-black tracking-wider uppercase text-white">System Deployment Registry</h3>
+                <button onclick="closeAddModal()" class="text-slate-500 hover:text-white transition-all">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- 관리자 편집 양식 -->
+            <form id="addForm" onsubmit="submitMemberForm(event)" class="space-y-5 text-xs">
+                <input type="hidden" id="formMemberId" value="">
+
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">길드원 이름 (CODENAME)</label>
+                    <input type="text" id="formName" required placeholder="예: 시그마가드" class="w-full bg-black border border-slate-900 rounded px-3 py-2 text-white focus:outline-none focus:border-slate-800 transition-all">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">이미지 URL (IMAGE SOURCE)</label>
+                    <input type="text" id="formImage" placeholder="예: https://images.unsplash.com/... (비워두면 아바타 생성)" class="w-full bg-black border border-slate-900 rounded px-3 py-2 text-white focus:outline-none focus:border-slate-800 transition-all font-mono text-[10px]">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">전투력 수치 (COMBAT POWER)</label>
+                    <input type="number" id="formPower" required min="0" max="9999999" placeholder="예: 852400" class="w-full bg-black border border-slate-900 rounded px-3 py-2 text-white focus:outline-none focus:border-slate-800 transition-all font-mono">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">클래스 구분 (CLASS)</label>
+                    <select id="formClass" class="w-full bg-black border border-slate-900 rounded px-2 py-2 text-slate-300 focus:outline-none focus:border-slate-800 transition-all">
+                        <option value="dealer">DEALER</option>
+                        <option value="tanker">TANKER</option>
+                        <option value="healer">HEALER</option>
+                    </select>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">지향색 다중 설정 (SIGNATURE COLORS)</label>
+                        <button type="button" onclick="addFormColorRow('#00f0ff')" class="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-[9px] font-bold text-cyan-400 hover:bg-slate-800 transition-all">
+                            + ADD COLOR
+                        </button>
+                    </div>
+                    
+                    <div id="formColorsContainer" class="space-y-2 bg-black/50 p-3 rounded border border-slate-900 max-h-48 overflow-y-auto">
+                        <!-- 동적으로 바인딩 될 것 -->
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">대표 한마디 (MOTTO)</label>
+                    <input type="text" id="formDesc" required placeholder="프로필 하단에 출력될 대표 한마디 문구를 입력해주세요." class="w-full bg-black border border-slate-900 rounded px-3 py-2 text-white focus:outline-none focus:border-slate-800 transition-all">
+                </div>
+
+                <div class="pt-4 flex gap-3">
+                    <button type="button" onclick="closeAddModal()" class="flex-1 py-2 bg-black border border-slate-900 hover:bg-slate-950 rounded text-[10px] font-bold tracking-wider uppercase transition-all duration-300">
+                        Cancel Registry
+                    </button>
+                    <button type="submit" id="formSubmitBtn" class="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] tracking-wider rounded border border-slate-850 transition-all duration-300 uppercase">
+                        Confirm Deployment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 영구 제명 확인용 커스텀 모달 (브라우저 confirm 대체) -->
+    <div id="confirmModal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+        <div class="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border border-red-950/60 max-w-sm w-full rounded-lg shadow-2xl p-6 text-center">
+            <span class="w-12 h-12 rounded-full bg-red-950/20 border border-red-500/30 flex items-center justify-center mx-auto mb-4 text-red-500 text-lg animate-pulse">⚠️</span>
+            <h3 class="text-sm font-black tracking-wider uppercase text-white mb-2">Personnel Decommission</h3>
+            <p id="confirmMessage" class="text-xs text-slate-400 leading-relaxed mb-6">정말로 해당 길드원의 기록을 영구 제명하고 무력화하시겠습니까?</p>
+            <div class="flex gap-3">
+                <button onclick="closeConfirmModal()" class="flex-1 py-2 bg-black border border-slate-900 hover:bg-slate-950 rounded text-[10px] font-bold tracking-wider uppercase transition-all duration-300">
+                    Abort Decommission
+                </button>
+                <button onclick="executeDecommission()" class="flex-1 py-2 bg-red-900/80 hover:bg-red-800 text-white font-bold text-[10px] tracking-wider rounded border border-red-700/60 transition-all duration-300 uppercase">
+                    Confirm Decommission
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 우주 정밀 정보 시스템 팝업 알림 -->
+    <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-black border border-slate-900 text-slate-300 text-[10px] font-bold tracking-wider px-6 py-3 rounded shadow-2xl z-50 transition-all duration-500 text-center uppercase">
+        SYSTEM RECONFIGURED
+    </div>
+
+    <!-- 비즈니스 아키텍처 스크립트 파일 구성 -->
+    <script>
+        // 직업별 고유 시그니처 컬러 테마 매핑 테이블
+        const classThemes = {
+            dealer: {
+                hex: '#ef4444',
+                rgba: 'rgba(239, 68, 68, 0.15)',
+                glow: 'rgba(239, 68, 68, 0.25)'
+            },
+            tanker: {
+                hex: '#10b981',
+                rgba: 'rgba(16, 185, 129, 0.15)',
+                glow: 'rgba(16, 185, 129, 0.25)'
+            },
+            healer: {
+                hex: '#00f0ff',
+                rgba: 'rgba(0, 240, 255, 0.15)',
+                glow: 'rgba(0, 240, 255, 0.25)'
+            }
+        };
+
+        // RGBA 알파 글로우 매핑 헬퍼 함수
+        function hexToRgba(hex, alpha) {
+            if (!hex || hex.length < 7) {
+                return `rgba(0, 240, 255, ${alpha})`;
+            }
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        // 초기 기본 멤버 데이터셋
+        const defaultMembers = [
+            {
+                id: 1,
+                name: "알파슬레이어",
+                class: "dealer",
+                desc: "최선의 방어는 압도적인 파괴입니다.",
+                visual: "⚔️",
+                power: 954000,
+                colors: ["#ef4444", "#a855f7", "#00f0ff"],
+                joinDate: "2026.01.12",
+                image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=400"
+            },
+            {
+                id: 2,
+                name: "아이언월",
+                class: "tanker",
+                desc: "내가 무너지기 전엔 아무도 못 지나간다.",
+                visual: "🛡️",
+                power: 742500,
+                colors: ["#10b981", "#f59e0b"],
+                joinDate: "2026.02.01",
+                image: "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?auto=format&fit=crop&q=80&w=400"
+            },
+            {
+                id: 3,
+                name: "성스러운빛",
+                class: "healer",
+                desc: "체력바가 마르지 않도록 케어합니다.",
+                visual: "✨",
+                power: 631000,
+                colors: ["#00f0ff", "#ffffff", "#f59e0b"],
+                joinDate: "2026.02.08",
+                image: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&q=80&w=400"
+            },
+            {
+                id: 4,
+                name: "신입레이더",
+                class: "dealer",
+                desc: "새로 합류하게 되었습니다. 잘 부탁드립니다!",
+                visual: "👤",
+                power: 421000,
+                colors: ["#f59e0b"],
+                joinDate: "2026.06.15",
+                image: ""
+            }
+        ];
+
+        // 영구 로컬 스토리지 데이터 마이그레이션 호환 처리
+        let rawMembers = JSON.parse(localStorage.getItem('guildMembers')) || defaultMembers;
+        let guildMembers = rawMembers.map(m => {
+            if (m.color && !m.colors) {
+                m.colors = [m.color];
+            }
+            if (!m.colors || m.colors.length === 0) {
+                m.colors = ["#00f0ff"];
+            }
+            return m;
+        });
+
+        // 전반 통합 시스템 상태값 컨텍스트 정의
+        const systemState = {
+            activeFilter: 'all',
+            searchQuery: '',
+            sortBy: 'recent',
+            selectedCardId: null,
+            isAdmin: false
+        };
+
+        // [비율적 좌표(0~1) 기반 전체화면 성운 & 우주 별빛 흐름 엔진 개편]
+        // 해상도가 바뀔 때 구석으로 몰리는 버그 완전 교체!
+        function initStarfield() {
+            const canvas = document.getElementById('starfield');
+            const ctx = canvas.getContext('2d');
+            let stars = [];
+            let nebulae = [];
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            // 성운 가스 먼지 정의 (가장자리 유영 비율적 정의)
+            nebulae = [
+                {
+                    x: 0.2, // normalized x (0~1)
+                    y: 0.2, // normalized y (0~1)
+                    radiusRatio: 0.45, // 화면 최대 변의 45% 크기 할당
+                    color: 'rgba(16, 24, 120, 0.15)',
+                    vx: 0.00004,
+                    vy: 0.00002
+                },
+                {
+                    x: 0.8,
+                    y: 0.3,
+                    radiusRatio: 0.4,
+                    color: 'rgba(88, 12, 160, 0.11)',
+                    vx: -0.00003,
+                    vy: 0.00003
+                },
+                {
+                    x: 0.5,
+                    y: 0.75,
+                    radiusRatio: 0.5,
+                    color: 'rgba(64, 8, 92, 0.13)',
+                    vx: 0.00002,
+                    vy: -0.00002
+                }
+            ];
+
+            // 촘촘하고 아주 미세한 백그라운드 별빛 생성 (250개 비율 좌표 분포 생성)
+            for (let i = 0; i < 250; i++) {
+                stars.push({
+                    x: Math.random(), // 0.0 ~ 1.0 비율적 초기 좌표 할당
+                    y: Math.random(),
+                    size: Math.random() * 0.9 + 0.3, // 0.3px ~ 1.2px 미세 점들로 조절
+                    twinkleSpeed: 0.002 + Math.random() * 0.005, // 매우 천천히 반짝임
+                    alpha: Math.random() * 0.5 + 0.1,
+                    direction: Math.random() > 0.5 ? 1 : -1,
+                    driftX: (Math.random() - 0.5) * 0.00005, // 화면 해상도 독립적 속도 비율 분배
+                    driftY: (Math.random() - 0.5) * 0.00005
+                });
+            }
+
+            // 프레임 렌더링 애니메이션 루프
+            function animate() {
+                // 고요한 암청색 배경
+                ctx.fillStyle = '#020207';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                const maxDimension = Math.max(canvas.width, canvas.height);
+
+                // 1. 성운 레이어 (Soft Nebula Rendering)
+                nebulae.forEach(neb => {
+                    neb.x += neb.vx;
+                    neb.y += neb.vy;
+
+                    // 범위 루프 가드
+                    if (neb.x > 1.4) neb.x = -0.4;
+                    if (neb.x < -0.4) neb.x = 1.4;
+                    if (neb.y > 1.4) neb.y = -0.4;
+                    if (neb.y < -0.4) neb.y = 1.4;
+
+                    const absoluteX = neb.x * canvas.width;
+                    const absoluteY = neb.y * canvas.height;
+                    const absoluteRadius = maxDimension * neb.radiusRatio;
+
+                    let grad = ctx.createRadialGradient(absoluteX, absoluteY, 0, absoluteX, absoluteY, absoluteRadius);
+                    grad.addColorStop(0, neb.color);
+                    grad.addColorStop(0.5, hexToRgba('#4f1285', 0.025));
+                    grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(absoluteX, absoluteY, absoluteRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                // 2. 미세 파티클 별빛 레이어 (Subtle Twinkling Stars Rendering)
+                stars.forEach(star => {
+                    star.alpha += star.twinkleSpeed * star.direction;
+                    if (star.alpha > 0.8 || star.alpha < 0.05) {
+                        star.direction *= -1;
+                    }
+
+                    star.x += star.driftX;
+                    star.y += star.driftY;
+
+                    // 화면 외각 가드 루프 (비율 기반 순환 구조)
+                    if (star.x < 0) star.x = 1;
+                    if (star.x > 1) star.x = 0;
+                    if (star.y < 0) star.y = 1;
+                    if (star.y > 1) star.y = 0;
+
+                    const absoluteX = star.x * canvas.width;
+                    const absoluteY = star.y * canvas.height;
+
+                    ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(absoluteX, absoluteY, star.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        // 운영자 모드 승인 스위치 토글
+        function toggleAdminMode() {
+            const toggle = document.getElementById('adminToggle');
+            const isChecked = toggle.checked;
+
+            if (isChecked) {
+                const password = prompt("보안 접근 키를 입력하세요. (테스트 암호: 1234)", "");
+                if (password === "1234") {
+                    systemState.isAdmin = true;
+                    showToast("OPERATOR AUTHORIZATION GRANTED.");
+                } else {
+                    toggle.checked = false;
+                    systemState.isAdmin = false;
+                    alert("보안 키가 일치하지 않습니다.");
+                }
+            } else {
+                systemState.isAdmin = false;
+                showToast("OPERATOR SESSION CLOSED.");
+            }
+
+            applyAdminVisibility();
+        }
+
+        // 상태값 기반 운영자 제어 영역의 동적 제어
+        function applyAdminVisibility() {
+            const registryBtn = document.getElementById('adminRegistryBtn');
+            const adminControls = document.getElementById('adminControls');
+
+            if (systemState.isAdmin) {
+                registryBtn.classList.remove('hidden');
+                if (adminControls) adminControls.classList.remove('hidden');
+            } else {
+                registryBtn.classList.add('hidden');
+                if (adminControls) adminControls.classList.add('hidden');
+            }
+        }
+
+        // 상태 기반 그리드 렌더러 (클래스별 정해진 고정 테마 색상으로 메인 카드 빛나게 연출)
+        function renderGrid() {
+            const grid = document.getElementById('cardGrid');
+            grid.innerHTML = '';
+
+            let processed = guildMembers.filter(member => {
+                const matchesFilter = systemState.activeFilter === 'all' || member.class === systemState.activeFilter;
+                const matchesSearch = member.name.toLowerCase().includes(systemState.searchQuery.toLowerCase());
+                return matchesFilter && matchesSearch;
+            });
+
+            processed.sort((a, b) => {
+                if (systemState.sortBy === 'name') {
+                    return a.name.localeCompare(b.name, 'ko');
+                } else if (systemState.sortBy === 'power') {
+                    return b.power - a.power;
+                } else {
+                    return b.id - a.id;
+                }
+            });
+
+            processed.forEach(member => {
+                const isSelected = member.id === systemState.selectedCardId;
+                const card = document.createElement('div');
+                
+                const theme = classThemes[member.class] || classThemes.dealer;
+                
+                card.style.setProperty('--accent-color', theme.hex);
+                card.style.setProperty('--glow-color', theme.glow);
+                
+                card.className = `char-card bg-gradient-to-b from-slate-950/80 to-slate-900/80 border-2 rounded-lg overflow-hidden relative cursor-pointer`;
+                card.style.borderColor = isSelected ? theme.hex : '#0f111a';
+                if (isSelected) {
+                    card.style.boxShadow = `0 0 25px ${theme.glow}`;
+                }
+                card.onclick = () => selectMember(member.id);
+
+                const formattedPower = Number(member.power).toLocaleString();
+
+                // 3:4 고정 비율 렌더링
+                card.innerHTML = `
+                    <div class="aspect-[3/4] w-full bg-black/60 relative flex items-center justify-center overflow-hidden border-b border-slate-950">
+                        <div class="absolute inset-0 grid-pattern opacity-5"></div>
+                        ${member.image ? 
+                            `<img src="${member.image}" alt="${member.name}" class="w-full h-full object-cover opacity-60 hover:opacity-85 transition-opacity" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden')">` : ''
+                        }
+                        <div class="${member.image ? 'hidden' : ''} absolute inset-0 flex items-center justify-center text-4xl select-none opacity-20" style="color: ${theme.hex}; text-shadow: 0 0 15px ${theme.glow};">${member.visual}</div>
+                    </div>
+                    <div class="p-4 bg-slate-950/90 flex flex-col gap-1">
+                        <span class="text-[8px] font-black uppercase tracking-widest" style="color: ${theme.hex}">${member.class}</span>
+                        <div class="text-sm font-black text-white tracking-wide">${member.name}</div>
+                        <div class="flex items-center justify-between mt-1 pt-1.5 border-t border-slate-900/50">
+                            <span class="text-[8px] text-slate-500 uppercase tracking-wider font-bold">POWER</span>
+                            <span class="text-[10px] font-mono text-slate-300 font-bold tracking-widest">${formattedPower}</span>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            updateStatistics();
+        }
+
+        // 제어 상태 업데이트 핸들러들
+        function onSearchChange(val) {
+            systemState.searchQuery = val;
+            renderGrid();
+        }
+
+        function onSortChange(val) {
+            systemState.sortBy = val;
+            renderGrid();
+        }
+
+        function setFilter(className) {
+            systemState.activeFilter = className;
+            const buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(btn => {
+                if (btn.getAttribute('data-filter') === className) {
+                    btn.className = "filter-btn px-3 py-1.5 rounded text-[10px] font-bold tracking-wider transition-all duration-300 bg-cyan-500/20 text-cyan-400 border border-cyan-500/20";
+                } else {
+                    btn.className = "filter-btn px-3 py-1.5 rounded text-[10px] font-bold tracking-wider transition-all duration-300 text-slate-500 hover:text-white";
+                }
+            });
+            renderGrid();
+        }
+
+        // 팝업 내부 데이터 필드 바인딩 (6가지 핵심 스펙 데이터 바인딩)
+        function selectMember(id) {
+            systemState.selectedCardId = id;
+            renderGrid();
+
+            const member = guildMembers.find(m => m.id === id);
+            if (!member) return;
+
+            const modal = document.getElementById('detailModal');
+            const panel = document.getElementById('detailPanel');
+            modal.classList.remove('hidden');
+            
+            setTimeout(() => {
+                panel.classList.remove('scale-95', 'opacity-0');
+                panel.classList.add('scale-100', 'opacity-100');
+            }, 10);
+
+            const theme = classThemes[member.class] || classThemes.dealer;
+
+            // 1. 이름 (Name)
+            const detailName = document.getElementById('detailName');
+            detailName.textContent = member.name;
+            detailName.style.textShadow = `0 0 12px ${theme.glow}`;
+
+            // 뱃지 및 분류
+            const badge = document.getElementById('detailClassBadge');
+            badge.textContent = member.class.toUpperCase();
+            badge.style.color = theme.hex;
+            badge.style.backgroundColor = theme.rgba;
+            badge.style.borderColor = theme.hex;
+
+            // 2. 이미지 (Image - 3:4 고정 프레임 연동)
+            const detailImg = document.getElementById('detailImage');
+            const placeholder = document.getElementById('imagePlaceholder');
+            const placeholderIcon = document.getElementById('imagePlaceholderIcon');
+
+            if (member.image && member.image.trim() !== "") {
+                detailImg.src = member.image;
+                detailImg.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            } else {
+                detailImg.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+                placeholderIcon.textContent = member.visual || "👤";
+                placeholderIcon.style.color = theme.hex;
+                placeholderIcon.style.textShadow = `0 0 20px ${theme.glow}`;
+            }
+
+            // 3. 투력 (Combat Power - 'cp' 텍스트 소멸)
+            document.getElementById('detailPower').textContent = Number(member.power).toLocaleString();
+
+            // 4. 지향색 (Preferred Colors - 다중 칩 렌더러 구현)
+            const colorsContainer = document.getElementById('detailColorsContainer');
+            colorsContainer.innerHTML = '';
+            
+            if (member.colors && member.colors.length > 0) {
+                member.colors.forEach((colorHex, idx) => {
+                    const colorChip = document.createElement('div');
+                    colorChip.className = "flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded border border-slate-900";
+                    colorChip.innerHTML = `
+                        <span class="w-3.5 h-3.5 rounded-full border border-white/20 shadow-md flex-shrink-0" style="background-color: ${colorHex}; box-shadow: 0 0 6px ${hexToRgba(colorHex, 0.4)};"></span>
+                        <span class="text-[9px] font-mono font-bold uppercase" style="color: ${colorHex}">${colorHex}</span>
+                    `;
+                    colorsContainer.appendChild(colorChip);
+                });
+            } else {
+                colorsContainer.innerHTML = `<span class="text-[10px] text-slate-600 italic">등록된 지향색이 없습니다.</span>`;
+            }
+
+            // 5. 한마디 (Motto)
+            document.getElementById('detailDesc').textContent = `"${member.desc}"`;
+
+            // 운영자 보안 승인 상태 동기화
+            applyAdminVisibility();
+        }
+
+        // 이미지 로딩 실패 백백가드 처리
+        function handleImageLoadError(imgEl) {
+            imgEl.classList.add('hidden');
+            const placeholder = document.getElementById('imagePlaceholder');
+            const placeholderIcon = document.getElementById('imagePlaceholderIcon');
+            placeholder.classList.remove('hidden');
+            
+            const member = guildMembers.find(m => m.id === systemState.selectedCardId);
+            if (member) {
+                const theme = classThemes[member.class] || classThemes.dealer;
+                placeholderIcon.textContent = member.visual || "👤";
+                placeholderIcon.style.color = theme.hex;
+                placeholderIcon.style.textShadow = `0 0 20px ${theme.glow}`;
+            }
+        }
+
+        // 상세 모달 창 스위치 온오프
+        function closeDetailModal() {
+            const modal = document.getElementById('detailModal');
+            const panel = document.getElementById('detailPanel');
+            
+            panel.classList.remove('scale-100', 'opacity-100');
+            panel.classList.add('scale-95', 'opacity-0');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                systemState.selectedCardId = null;
+                renderGrid();
+            }, 250);
+        }
+
+        // 실시간 누적 스펙 카운트
+        function updateStatistics() {
+            document.getElementById('statTotal').textContent = guildMembers.length;
+            document.getElementById('statDealer').textContent = guildMembers.filter(m => m.class === 'dealer').length;
+            document.getElementById('statTanker').textContent = guildMembers.filter(m => m.class === 'tanker').length;
+            document.getElementById('statHealer').textContent = guildMembers.filter(m => m.class === 'healer').length;
+        }
+
+        // 운영자 설정 다중 지향색 로우 필드 동적 바인딩
+        function addFormColorRow(hexVal = '#00f0ff') {
+            const container = document.getElementById('formColorsContainer');
+            const rowId = 'color_row_' + Date.now() + Math.random().toString(36).substr(2, 5);
+
+            const row = document.createElement('div');
+            row.id = rowId;
+            row.className = 'flex items-center gap-3 bg-black/60 p-2 rounded border border-slate-800';
+            row.innerHTML = `
+                <div class="flex items-center gap-2 flex-grow">
+                    <input type="color" value="${hexVal}" oninput="syncColorRowText('${rowId}', this.value)" class="w-8 h-8 bg-transparent border-0 cursor-pointer flex-shrink-0">
+                    <input type="text" value="${hexVal}" onchange="syncColorRowPicker('${rowId}', this.value)" class="color-text-input w-full bg-black border border-slate-900 rounded px-2 py-1 font-mono text-[11px] text-slate-300 focus:outline-none focus:border-slate-800">
+                </div>
+                <button type="button" onclick="removeFormColorRow('${rowId}')" class="text-slate-500 hover:text-red-400 font-bold px-1 transition-all">DEL</button>
+            `;
+            container.appendChild(row);
+        }
+
+        function removeFormColorRow(rowId) {
+            const container = document.getElementById('formColorsContainer');
+            if (container.children.length <= 1) {
+                alert("최소 1개 이상의 지향색 정보가 기록되어야 합니다.");
+                return;
+            }
+            const row = document.getElementById(rowId);
+            if (row) row.remove();
+        }
+
+        function syncColorRowText(rowId, hex) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                row.querySelector('.color-text-input').value = hex.toUpperCase();
+            }
+        }
+
+        function syncColorRowPicker(rowId, hex) {
+            const row = document.getElementById(rowId);
+            if (row && /^#[0-9A-F]{6}$/i.test(hex)) {
+                row.querySelector('input[type="color"]').value = hex;
+            }
+        }
+
+        // 인원 등록 모달 오프너
+        function openAddModal() {
+            document.getElementById('addModal').classList.remove('hidden');
+            document.getElementById('modalTitle').textContent = "System Deployment Registry";
+            document.getElementById('formSubmitBtn').textContent = "Confirm Deployment";
+            document.getElementById('formMemberId').value = "";
+            
+            const container = document.getElementById('formColorsContainer');
+            container.innerHTML = '';
+            addFormColorRow('#00f0ff');
+        }
+
+        // 정보 수정 모달 기동
+        function triggerEditMember() {
+            const member = guildMembers.find(m => m.id === systemState.selectedCardId);
+            if (!member) return;
+
+            document.getElementById('detailModal').classList.add('hidden');
+            document.getElementById('addModal').classList.remove('hidden');
+            
+            document.getElementById('modalTitle').textContent = "Personnel Record Modification";
+            document.getElementById('formSubmitBtn').textContent = "Update Registry";
+            
+            document.getElementById('formMemberId').value = member.id;
+            document.getElementById('formName').value = member.name;
+            document.getElementById('formImage').value = member.image || "";
+            document.getElementById('formPower').value = member.power;
+            document.getElementById('formClass').value = member.class;
+            document.getElementById('formDesc').value = member.desc;
+
+            const container = document.getElementById('formColorsContainer');
+            container.innerHTML = '';
+            if (member.colors && member.colors.length > 0) {
+                member.colors.forEach(col => addFormColorRow(col));
+            } else {
+                addFormColorRow('#00f0ff');
+            }
+        }
+
+        function closeAddModal() {
+            document.getElementById('addModal').classList.add('hidden');
+            document.getElementById('addForm').reset();
+            document.getElementById('formMemberId').value = "";
+            document.getElementById('formColorsContainer').innerHTML = '';
+        }
+
+        // CRUD: 생성 및 수정 제어 라우터
+        function submitMemberForm(e) {
+            e.preventDefault();
+
+            const memberIdVal = document.getElementById('formMemberId').value;
+            const name = document.getElementById('formName').value;
+            const image = document.getElementById('formImage').value;
+            const power = parseInt(document.getElementById('formPower').value) || 0;
+            const className = document.getElementById('formClass').value;
+            const desc = document.getElementById('formDesc').value;
+
+            const colorInputs = document.querySelectorAll('#formColorsContainer input[type="color"]');
+            const colors = [];
+            colorInputs.forEach(input => {
+                if (input.value) {
+                    colors.push(input.value.toLowerCase());
+                }
+            });
+
+            const visuals = {
+                dealer: '⚔️',
+                tanker: '🛡️',
+                healer: '✨'
+            };
+
+            if (memberIdVal) {
+                // 수정
+                const memberIndex = guildMembers.findIndex(m => m.id === parseInt(memberIdVal));
+                if (memberIndex !== -1) {
+                    guildMembers[memberIndex] = {
+                        ...guildMembers[memberIndex],
+                        name,
+                        image,
+                        power,
+                        class: className,
+                        desc,
+                        visual: visuals[className],
+                        colors: colors
+                    };
+                    showToast(`${name} 길드원의 프로필 정보가 성공적으로 수정되었습니다.`);
+                }
+            } else {
+                // 신규
+                const now = new Date();
+                const joinDate = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
+                
+                const newMember = {
+                    id: Date.now(),
+                    name,
+                    image,
+                    power,
+                    class: className,
+                    desc,
+                    visual: visuals[className],
+                    colors: colors,
+                    joinDate
+                };
+                guildMembers.push(newMember);
+                systemState.selectedCardId = newMember.id;
+                showToast(`${name} 길드원의 프로필 데이터가 신규 배포되었습니다.`);
+            }
+
+            localStorage.setItem('guildMembers', JSON.stringify(guildMembers));
+            closeAddModal();
+            renderGrid();
+            
+            if (memberIdVal) {
+                selectMember(parseInt(memberIdVal));
+            } else {
+                selectMember(systemState.selectedCardId);
+            }
+        }
+
+        // CRUD: 제명 처리 루틴
+        let pendingDecommissionId = null;
+
+        function requestDecommission() {
+            const member = guildMembers.find(m => m.id === systemState.selectedCardId);
+            if (!member) return;
+
+            pendingDecommissionId = member.id;
+            document.getElementById('confirmMessage').innerHTML = `정말로 <strong>${member.name}</strong> 길드원의 모든 전술 데이터를 영구적으로 제명하시겠습니까? 이 작업은 되돌릴 수 없습니다.`;
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            pendingDecommissionId = null;
+        }
+
+        function executeDecommission() {
+            if (!pendingDecommissionId) return;
+
+            const memberIndex = guildMembers.findIndex(m => m.id === pendingDecommissionId);
+            if (memberIndex !== -1) {
+                const name = guildMembers[memberIndex].name;
+                guildMembers.splice(memberIndex, 1);
+                localStorage.setItem('guildMembers', JSON.stringify(guildMembers));
+                
+                showToast(`${name} 길드원이 시스템 Roster에서 제명 및 무력화되었습니다.`);
+            }
+
+            closeConfirmModal();
+            closeDetailModal();
+            systemState.selectedCardId = null;
+            renderGrid();
+        }
+
+        // 하단 플로팅 토스트 공지
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        // 윈도우 최초 진입 구동
+        window.onload = () => {
+            initStarfield();
+            applyAdminVisibility();
+            renderGrid();
+        };
+    </script>
+</body>
+</html>

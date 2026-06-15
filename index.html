@@ -438,66 +438,64 @@
         // [★ 매우 중요 ★] 소스코드 자동 대입용 격자 표기구
         /* GITHUB_DATA_START */
         const defaultMembers = [
-          {
-                    "id": "1",
-                    "name": "알파슬레이어",
-                    "class": "dealer",
-                    "desc": "최선의 방어는 압도적인 파괴입니다.",
-                    "visual": "⚔️",
-                    "power": 954000,
-                    "colors": [
-                              "#ef4444",
-                              "#a855f7",
-                              "#00f0ff"
-                    ],
-                    "joinDate": "2026.01.12",
-                    "image": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=400"
-          },
-          {
-                    "id": "2",
-                    "name": "아이언월",
-                    "class": "tanker",
-                    "desc": "내가 무너지기 전엔 아무도 못 지나간다.",
-                    "visual": "🛡️",
-                    "power": 742500,
-                    "colors": [
-                              "#10b981",
-                              "#f59e0b"
-                    ],
-                    "joinDate": "2026.02.01",
-                    "image": "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?auto=format&fit=crop&q=80&w=400"
-          },
-          {
-                    "id": "3",
-                    "name": "성스러운빛",
-                    "class": "healer",
-                    "desc": "체력바가 마르지 않도록 케어합니다.",
-                    "visual": "✨",
-                    "power": 631000,
-                    "colors": [
-                              "#00f0ff",
-                              "#ffffff",
-                              "#f59e0b"
-                    ],
-                    "joinDate": "2026.02.08",
-                    "image": "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&q=80&w=400"
-          },
-          {
-                    "id": "4",
-                    "name": "연동전혀안되고있습니다",
-                    "image": "",
-                    "power": 1234,
-                    "class": "dealer",
-                    "desc": "새로 합류하게 되었습니다. 잘 부탁드립니다!",
-                    "visual": "⚔️",
-                    "colors": [
-                              "#f59e0b",
-                              "#00f0ff",
-                              "#52eb00"
-                    ],
-                    "joinDate": "2026.06.15"
-          }
-];
+            {
+                "id": "1",
+                "name": "알파슬레이어",
+                "class": "dealer",
+                "desc": "최선의 방어는 압도적인 파괴입니다.",
+                "visual": "⚔️",
+                "power": 954000,
+                "colors": [
+                    "#ef4444",
+                    "#a855f7",
+                    "#00f0ff"
+                ],
+                "joinDate": "2026.01.12",
+                "image": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=400"
+            },
+            {
+                "id": "2",
+                "name": "아이언월",
+                "class": "tanker",
+                "desc": "내가 무너지기 전엔 아무도 못 지나간다.",
+                "visual": "🛡️",
+                "power": 742500,
+                "colors": [
+                    "#10b981",
+                    "#f59e0b"
+                ],
+                "joinDate": "2026.02.01",
+                "image": "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?auto=format&fit=crop&q=80&w=400"
+            },
+            {
+                "id": "3",
+                "name": "성스러운빛",
+                "class": "healer",
+                "desc": "체력바가 마르지 않도록 케어합니다.",
+                "visual": "✨",
+                "power": 631000,
+                "colors": [
+                    "#00f0ff",
+                    "#ffffff",
+                    "#f59e0b"
+                ],
+                "joinDate": "2026.02.08",
+                "image": "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&q=80&w=400"
+            },
+            {
+                "id": "4",
+                "name": "신입레이더",
+                "class": "dealer",
+                "desc": "새로 합류하게 되었습니다. 잘 부탁드립니다!",
+                "visual": "👤",
+                "power": 421000,
+                "colors": [
+                    "#f59e0b"
+                ],
+                "joinDate": "2026.06.15",
+                "image": ""
+            }
+        ];
         /* GITHUB_DATA_END */
 
         let guildMembers = [];
@@ -625,7 +623,16 @@
 
         // 로컬 정적 데이터 초기 로딩
         function loadDatabase() {
-            guildMembers = JSON.parse(JSON.stringify(defaultMembers));
+            // [★ 중요 하이브리드 캐시 복원 ★]
+            // 다른 사용자와의 완전한 동기화와 별개로, 관리자 본인이 수정한 직후 새로고침하더라도 깃허브 빌드가 끝날 때까지 
+            // 데이터가 리셋된 것처럼 보이지 않도록 클라이언트 로컬 캐시를 최우선 연동합니다.
+            const cached = localStorage.getItem('anonymity_guild_roster_static');
+            if (cached) {
+                guildMembers = JSON.parse(cached);
+            } else {
+                guildMembers = JSON.parse(JSON.stringify(defaultMembers));
+                localStorage.setItem('anonymity_guild_roster_static', JSON.stringify(guildMembers));
+            }
             renderGrid();
         }
 
@@ -994,8 +1001,8 @@
             const pat = localStorage.getItem('git_pat');
 
             if (!username || !repo || !pat) {
-                // 연동 설정이 안 되어있다면 로컬 캐시만 적용하고 알림
-                showToast("길드원 데이터가 브라우저에 임시 저장되었습니다. 깃허브 실시간 동기화를 위해 상단의 GITHUB SYNC 설정을 완료해 주십시오.");
+                // 연동 설정이 안 되어있다면 로컬 캐시만 우선 선반영하고 경고
+                showToast("길드원 데이터가 브라우저 세션에 임시 저장되었습니다. 깃허브 실시간 동기화를 위해 상단의 GITHUB SYNC 설정을 완료해 주십시오.");
                 return false;
             }
 
@@ -1120,6 +1127,12 @@
                 guildMembers.push(data);
             }
 
+            // [★ 중요 낙관적 UI 패치 ★] 
+            // 깃허브 원격 서버 배포 대기 시간(1~2분) 동안 관리자 본인의 화면이 늦게 갱신되는 현상을 해결하기 위해,
+            // 로컬 스토리지에 데이터를 먼저 저장하고 UI를 즉시 다시 그려주도록 렌더링 호출을 선행 배치합니다.
+            localStorage.setItem('anonymity_guild_roster_static', JSON.stringify(guildMembers));
+            renderGrid();
+
             // 깃허브 원격 동기화 시도
             const success = await syncToGitHub(`Tactical Update: Member Registry [${name}] changed.`);
             
@@ -1128,8 +1141,9 @@
                 systemState.selectedCardId = targetId;
                 selectMember(targetId);
             } else {
-                // 실패 시 롤백 (로컬 캐시용)
+                // 원격 커밋 실패 시에만 이전 상태로 클라이언트 롤백 및 캐시 복구
                 guildMembers = originalMembers;
+                localStorage.setItem('anonymity_guild_roster_static', JSON.stringify(guildMembers));
                 renderGrid();
             }
         }
@@ -1159,6 +1173,10 @@
 
             guildMembers = guildMembers.filter(m => m.id !== pendingDecommissionId);
 
+            // [★ 중요 낙관적 UI 패치 ★] 제명 시에도 로컬 브라우저 상태를 우선적으로 무력화 및 즉각 렌더링을 갱신합니다.
+            localStorage.setItem('anonymity_guild_roster_static', JSON.stringify(guildMembers));
+            renderGrid();
+
             const success = await syncToGitHub(`Tactical Update: Decommission [${member ? member.name : ''}] completed.`);
 
             if (success) {
@@ -1166,7 +1184,9 @@
                 closeDetailModal();
                 systemState.selectedCardId = null;
             } else {
+                // 원격 제명 실패 시 로컬 상태 자동 롤백 및 캐시 원복
                 guildMembers = originalMembers;
+                localStorage.setItem('anonymity_guild_roster_static', JSON.stringify(guildMembers));
                 renderGrid();
             }
         }

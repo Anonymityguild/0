@@ -224,7 +224,7 @@
                 </div>
             </div>
 
-            <!-- 4. 다중 지향색 수동 설정 리스트 -->
+            <!-- 4. 다중 지향색 수동 설정 리스트 (텍스트 가독성 결함을 완벽히 배제한 신규 수리 영역) -->
             <div class="z-10 bg-slate-950/10 border border-white/5 backdrop-blur-md p-3 rounded-lg flex flex-col gap-2">
                 <div class="text-[9px] text-slate-500 font-bold uppercase tracking-wider font-mono">지향색 (PREFERRED COLORS)</div>
                 <div id="detailColorsContainer" class="flex flex-wrap items-center gap-3">
@@ -347,7 +347,7 @@
                 </div>
                 <div>
                     <label class="block text-[9px] font-bold text-slate-500 uppercase mb-1">Repository Name (저장소 이름)</label>
-                    <input type="text" id="gitRepo" required placeholder="예: anonymity-guild" class="w-full bg-black/60 border border-slate-900 rounded px-3 py-1.5 text-white focus:outline-none focus:border-slate-800 transition-all font-mono">
+                    <input type="text" id="gitRepo" required placeholder="예: anonymityguild.github.io" class="w-full bg-black/60 border border-slate-900 rounded px-3 py-1.5 text-white focus:outline-none focus:border-slate-800 transition-all font-mono">
                 </div>
                 <div>
                     <label class="block text-[9px] font-bold text-slate-500 uppercase mb-1">Branch (브랜치명)</label>
@@ -461,82 +461,65 @@
         // [★ 매우 중요 ★] 소스코드 자동 대입용 격자 표기구
         /* GITHUB_DATA_START */
         const defaultMembers = [
-          {
-                    "id": "1",
-                    "name": "알파슬레이어",
-                    "class": "dealer",
-                    "desc": "최선의 방어는 압도적인 파괴입니다.",
-                    "visual": "⚔️",
-                    "power": 954000,
-                    "colors": [
-                              "#ef4444",
-                              "#a855f7",
-                              "#00f0ff"
-                    ],
-                    "joinDate": "2026.01.12",
-                    "image": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=400"
-          },
-          {
-                    "id": "2",
-                    "name": "아이언월",
-                    "class": "tanker",
-                    "desc": "내가 무너지기 전엔 아무도 못 지나간다.",
-                    "visual": "🛡️",
-                    "power": 742500,
-                    "colors": [
-                              "#10b981",
-                              "#f59e0b"
-                    ],
-                    "joinDate": "2026.02.01",
-                    "image": "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?auto=format&fit=crop&q=80&w=400"
-          },
-          {
-                    "id": "3",
-                    "name": "성스러운빛",
-                    "image": "https://images.unsplash.com/photo-1778393719113-a2d80861e63a?q=80&w=1160&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-                    "power": 55555,
-                    "class": "healer",
-                    "desc": "체력바가 마르지 않도록 케어합니다.",
-                    "visual": "✨",
-                    "colors": [
-                              "#e887c9",
-                              "#ffffff",
-                              "#fddfaa"
-                    ],
-                    "joinDate": "2026.02.08"
-          },
-          {
-                    "id": "4",
-                    "name": "귄님 보이시나요?",
-                    "image": "",
-                    "power": 444323,
-                    "class": "dealer",
-                    "desc": "새로 합류하게 되었습니다. 잘 부탁드립니다!",
-                    "visual": "⚔️",
-                    "colors": [
-                              "#f59e0b",
-                              "#007bff",
-                              "#00f0ff"
-                    ],
-                    "joinDate": "2026.06.15"
-          },
-          {
-                    "id": "1781511237099",
-                    "name": "청건",
-                    "image": "https://cdn.discordapp.com/attachments/1356491421313663156/1515986311700283454/20260615_164743.jpg?ex=6a30ffc6&is=6a2fae46&hm=926610a4d4062509f387e1b28df0f6ac76b2d4198e41a0557fa8129e82d2050a&",
-                    "power": 67000,
-                    "class": "healer",
-                    "desc": ".",
-                    "visual": "✨",
-                    "colors": [
-                              "#000000",
-                              "#f0f0f0",
-                              "#474747"
-                    ],
-                    "joinDate": "2026.06.15"
-          }
-];
-        /* GITHUB_DATA_END *//
+            {
+                "id": "1",
+                "name": "알파슬레이어",
+                "class": "dealer",
+                "desc": "최선의 방어는 압도적인 파괴입니다.",
+                "visual": "⚔️",
+                "power": 954000,
+                "colors": [
+                    "#ef4444",
+                    "#a855f7",
+                    "#00f0ff"
+                ],
+                "joinDate": "2026.01.12",
+                "image": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=400"
+            },
+            {
+                "id": "2",
+                "name": "아이언월",
+                "class": "tanker",
+                "desc": "내가 무너지기 전엔 아무도 못 지나간다.",
+                "visual": "🛡️",
+                "power": 742500,
+                "colors": [
+                    "#10b981",
+                    "#f59e0b"
+                ],
+                "joinDate": "2026.02.01",
+                "image": "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?auto=format&fit=crop&q=80&w=400"
+            },
+            {
+                "id": "3",
+                "name": "성스러운빛",
+                "class": "healer",
+                "desc": "체력바가 마르지 않도록 케어합니다.",
+                "visual": "✨",
+                "power": 631000,
+                "colors": [
+                    "#00f0ff",
+                    "#ffffff",
+                    "#f59e0b"
+                ],
+                "joinDate": "2026.02.08",
+                "image": "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&q=80&w=400"
+            },
+            {
+                "id": "4",
+                "name": "신입레이더",
+                "class": "dealer",
+                "desc": "새로 합류하게 되었습니다. 잘 부탁드립니다!",
+                "visual": "👤",
+                "power": 421000,
+                "colors": [
+                    "#f59e0b"
+                ],
+                "joinDate": "2026.06.15",
+                "image": ""
+            }
+        ];
+        /* GITHUB_DATA_END */
 
         let guildMembers = [];
 
@@ -789,11 +772,13 @@
             renderGrid();
         }
 
+        // 정렬 기준 변경
         function onSortChange(val) {
             systemState.sortBy = val;
             renderGrid();
         }
 
+        // 역할 필터 변경
         function setFilter(className) {
             systemState.activeFilter = className;
             const buttons = document.querySelectorAll('.filter-btn');
@@ -872,9 +857,10 @@
                 member.colors.forEach((colorHex) => {
                     const colorChip = document.createElement('div');
                     colorChip.className = "flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded border border-white/5";
+                    // [가독성 패치] 텍스트 레이블 자체의 컬러를 지향색으로 설정하는 대신, 중립적인 text-slate-300으로 일치시켜 검은색 지향색에서도 완벽한 명도 대비와 가독성을 보장
                     colorChip.innerHTML = `
                         <span class="w-3.5 h-3.5 rounded-full border border-white/20 shadow-md flex-shrink-0" style="background-color: ${colorHex}; box-shadow: 0 0 6px ${hexToRgba(colorHex, 0.4)};"></span>
-                        <span class="text-[9px] font-mono font-bold uppercase" style="color: ${colorHex}">${colorHex}</span>
+                        <span class="text-[9px] font-mono font-bold uppercase text-slate-300">${colorHex}</span>
                     `;
                     colorsContainer.appendChild(colorChip);
                 });

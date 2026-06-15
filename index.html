@@ -192,10 +192,10 @@
                 </div>
             </div>
 
-            <!-- 2. 이미지 프레임 (3:4 종횡비 엄격 준수) -->
+            <!-- 2. 이미지 프레임 (3:4 종횡비 엄격 준수, 인라인 onerror 속성을 완전히 걷어내고 프로그램 방식 바인딩으로 수정) -->
             <div class="relative aspect-[3/4] max-w-[280px] mx-auto w-full rounded-lg bg-black/80 border border-slate-900/60 flex items-center justify-center overflow-hidden z-10">
                 <div class="absolute inset-0 grid-pattern opacity-[0.03]"></div>
-                <img id="detailImage" src="" alt="길드원 전술 이미지" onerror="handleImageLoadError(this)" class="w-full h-full object-cover transition-all duration-500">
+                <img id="detailImage" src="" alt="길드원 전술 이미지" class="w-full h-full object-cover transition-all duration-500">
                 <div id="imagePlaceholder" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-slate-950 text-slate-800">
                     <div id="imagePlaceholderIcon" class="text-6xl mb-2 filter drop-shadow">👤</div>
                     <span class="text-[8px] font-mono tracking-widest text-slate-600 uppercase">Anonymity Profile Backup</span>
@@ -330,8 +330,29 @@
         SYSTEM RECONFIGURED
     </div>
 
-    <!-- 비즈니스 아키텍처 스크립트 파일 구성 -->
-    <script>
+    <!-- 파이어베이스 모듈 스크립트 전면 연계 -->
+    <script type="module">
+        // 필수 Firebase 모듈 수입
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 파이어베이스 런타임 주입 환경 변수 파싱 및 검증
+        let firebaseConfig = {};
+        try {
+            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                firebaseConfig = JSON.parse(__firebase_config);
+            }
+        } catch (e) {
+            console.error("Firebase config parsing failed.", e);
+        }
+
+        // 인스턴스 초기화
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
         // 직업별 고유 시그니처 컬러 테마 매핑 테이블
         const classThemes = {
             dealer: {
@@ -362,7 +383,7 @@
             return `rgba(${r}, ${g}, ${b}, ${alpha})`;
         }
 
-        // 초기 기본 멤버 데이터셋
+        // 초기 기본 마이그레이션 백업 멤버 셋
         const defaultMembers = [
             {
                 id: 1,
@@ -410,19 +431,10 @@
             }
         ];
 
-        // 영구 로컬 스토리지 데이터 마이그레이션 호환 처리
-        let rawMembers = JSON.parse(localStorage.getItem('guildMembers')) || defaultMembers;
-        let guildMembers = rawMembers.map(m => {
-            if (m.color && !m.colors) {
-                m.colors = [m.color];
-            }
-            if (!m.colors || m.colors.length === 0) {
-                m.colors = ["#00f0ff"];
-            }
-            return m;
-        });
+        // 파이어베이스 동기화 기반 실시간 배열
+        let guildMembers = [];
 
-        // 전반 통합 시스템 상태값 컨텍스트 정의
+        // 통합 시스템 상태 제어 정보
         const systemState = {
             activeFilter: 'all',
             searchQuery: '',
@@ -431,8 +443,7 @@
             isAdmin: false
         };
 
-        // [비율적 좌표(0~1) 기반 전체화면 성운 & 우주 별빛 흐름 엔진 개편]
-        // 해상도가 바뀔 때 구석으로 몰리는 버그 완전 교체!
+        // 비율적 좌표(0~1) 기반 캔버스 은은한 천체 흐름 그래픽 엔진
         function initStarfield() {
             const canvas = document.getElementById('starfield');
             const ctx = canvas.getContext('2d');
@@ -446,12 +457,11 @@
             window.addEventListener('resize', resize);
             resize();
 
-            // 성운 가스 먼지 정의 (가장자리 유영 비율적 정의)
             nebulae = [
                 {
-                    x: 0.2, // normalized x (0~1)
-                    y: 0.2, // normalized y (0~1)
-                    radiusRatio: 0.45, // 화면 최대 변의 45% 크기 할당
+                    x: 0.2,
+                    y: 0.2,
+                    radiusRatio: 0.45,
                     color: 'rgba(16, 24, 120, 0.15)',
                     vx: 0.00004,
                     vy: 0.00002
@@ -474,34 +484,29 @@
                 }
             ];
 
-            // 촘촘하고 아주 미세한 백그라운드 별빛 생성 (250개 비율 좌표 분포 생성)
             for (let i = 0; i < 250; i++) {
                 stars.push({
-                    x: Math.random(), // 0.0 ~ 1.0 비율적 초기 좌표 할당
+                    x: Math.random(),
                     y: Math.random(),
-                    size: Math.random() * 0.9 + 0.3, // 0.3px ~ 1.2px 미세 점들로 조절
-                    twinkleSpeed: 0.002 + Math.random() * 0.005, // 매우 천천히 반짝임
+                    size: Math.random() * 0.9 + 0.3,
+                    twinkleSpeed: 0.002 + Math.random() * 0.005,
                     alpha: Math.random() * 0.5 + 0.1,
                     direction: Math.random() > 0.5 ? 1 : -1,
-                    driftX: (Math.random() - 0.5) * 0.00005, // 화면 해상도 독립적 속도 비율 분배
+                    driftX: (Math.random() - 0.5) * 0.00005,
                     driftY: (Math.random() - 0.5) * 0.00005
                 });
             }
 
-            // 프레임 렌더링 애니메이션 루프
             function animate() {
-                // 고요한 암청색 배경
                 ctx.fillStyle = '#020207';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                 const maxDimension = Math.max(canvas.width, canvas.height);
 
-                // 1. 성운 레이어 (Soft Nebula Rendering)
                 nebulae.forEach(neb => {
                     neb.x += neb.vx;
                     neb.y += neb.vy;
 
-                    // 범위 루프 가드
                     if (neb.x > 1.4) neb.x = -0.4;
                     if (neb.x < -0.4) neb.x = 1.4;
                     if (neb.y > 1.4) neb.y = -0.4;
@@ -522,7 +527,6 @@
                     ctx.fill();
                 });
 
-                // 2. 미세 파티클 별빛 레이어 (Subtle Twinkling Stars Rendering)
                 stars.forEach(star => {
                     star.alpha += star.twinkleSpeed * star.direction;
                     if (star.alpha > 0.8 || star.alpha < 0.05) {
@@ -532,7 +536,6 @@
                     star.x += star.driftX;
                     star.y += star.driftY;
 
-                    // 화면 외각 가드 루프 (비율 기반 순환 구조)
                     if (star.x < 0) star.x = 1;
                     if (star.x > 1) star.x = 0;
                     if (star.y < 0) star.y = 1;
@@ -552,7 +555,84 @@
             animate();
         }
 
-        // 운영자 모드 승인 스위치 토글
+        // 인증 상태 확인 후 파이어스토어 자동 실시간 동기화 바인딩 (RULE 3 준수)
+        let currentUser = null;
+        async function initAuth() {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                try {
+                    const userCredential = await signInWithCustomToken(auth, __initial_auth_token);
+                    currentUser = userCredential.user;
+                } catch (e) {
+                    const userCredential = await signInAnonymously(auth);
+                    currentUser = userCredential.user;
+                }
+            } else {
+                const userCredential = await signInAnonymously(auth);
+                currentUser = userCredential.user;
+            }
+        }
+
+        // 파이어스토어 실시간 바인딩 리스너 (RULE 1, RULE 2, RULE 3 완전 충족)
+        let unsubscribeMembers = null;
+        function subscribeToMembers() {
+            if (!currentUser) return;
+
+            // Strict Path 적용: /artifacts/{appId}/public/data/members
+            const membersCol = collection(db, 'artifacts', appId, 'public', 'data', 'members');
+
+            unsubscribeMembers = onSnapshot(membersCol, (snapshot) => {
+                const loadedMembers = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    loadedMembers.push({
+                        id: isNaN(Number(doc.id)) ? doc.id : Number(doc.id),
+                        ...data
+                    });
+                });
+
+                if (loadedMembers.length === 0) {
+                    // 데이터가 비어 있을 시 기본 뼈대 데이터를 클라우드에 자동 파퓰레이트
+                    seedDefaultData();
+                } else {
+                    guildMembers = loadedMembers;
+                    renderGrid();
+                    // 현재 활성화된 길드원이 있다면 해당 상세 패널 정보 실시간 갱신 적용
+                    if (systemState.selectedCardId) {
+                        selectMember(systemState.selectedCardId);
+                    }
+                }
+            }, (error) => {
+                console.error("Firestore 실시간 리스너 오류:", error);
+            });
+        }
+
+        // 파이어스토어 기본 데이터 시딩
+        async function seedDefaultData() {
+            if (!currentUser) return;
+            for (const member of defaultMembers) {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', member.id.toString());
+                await setDoc(docRef, {
+                    name: member.name,
+                    class: member.class,
+                    desc: member.desc,
+                    visual: member.visual,
+                    power: member.power,
+                    colors: member.colors,
+                    joinDate: member.joinDate,
+                    image: member.image
+                });
+            }
+        }
+
+        // 인증 상태 리스너 개시
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user) {
+                subscribeToMembers();
+            }
+        });
+
+        // 운영자 권한 모드 토글 스위치 제어
         function toggleAdminMode() {
             const toggle = document.getElementById('adminToggle');
             const isChecked = toggle.checked;
@@ -575,7 +655,6 @@
             applyAdminVisibility();
         }
 
-        // 상태값 기반 운영자 제어 영역의 동적 제어
         function applyAdminVisibility() {
             const registryBtn = document.getElementById('adminRegistryBtn');
             const adminControls = document.getElementById('adminControls');
@@ -589,7 +668,7 @@
             }
         }
 
-        // 상태 기반 그리드 렌더러 (클래스별 정해진 고정 테마 색상으로 메인 카드 빛나게 연출)
+        // 정적인 데이터 렌더러 파이프라인 (정렬 및 필터 적용은 메모리 상에서 안전하게 처리 - RULE 2)
         function renderGrid() {
             const grid = document.getElementById('cardGrid');
             grid.innerHTML = '';
@@ -606,7 +685,8 @@
                 } else if (systemState.sortBy === 'power') {
                     return b.power - a.power;
                 } else {
-                    return b.id - a.id;
+                    // 가입 시간 내림차순 정렬 처리
+                    return b.id.toString().localeCompare(a.id.toString());
                 }
             });
 
@@ -628,7 +708,6 @@
 
                 const formattedPower = Number(member.power).toLocaleString();
 
-                // 3:4 고정 비율 렌더링
                 card.innerHTML = `
                     <div class="aspect-[3/4] w-full bg-black/60 relative flex items-center justify-center overflow-hidden border-b border-slate-950">
                         <div class="absolute inset-0 grid-pattern opacity-5"></div>
@@ -652,7 +731,7 @@
             updateStatistics();
         }
 
-        // 제어 상태 업데이트 핸들러들
+        // 제어판 핸들러
         function onSearchChange(val) {
             systemState.searchQuery = val;
             renderGrid();
@@ -663,6 +742,7 @@
             renderGrid();
         }
 
+        // 필터링 버튼 세팅
         function setFilter(className) {
             systemState.activeFilter = className;
             const buttons = document.querySelectorAll('.filter-btn');
@@ -676,10 +756,25 @@
             renderGrid();
         }
 
-        // 팝업 내부 데이터 필드 바인딩 (6가지 핵심 스펙 데이터 바인딩)
+        // 모달 데이터 상세 뷰어 구성 변경
         function selectMember(id) {
             systemState.selectedCardId = id;
-            renderGrid();
+            
+            // 실시간 바인딩 시 활성화 체크를 위해 DOM 렌더링 유지
+            const activeCards = document.querySelectorAll('.char-card');
+            guildMembers.forEach((m, idx) => {
+                const el = activeCards[idx];
+                if (el) {
+                    const theme = classThemes[m.class] || classThemes.dealer;
+                    if (m.id === id) {
+                        el.style.borderColor = theme.hex;
+                        el.style.boxShadow = `0 0 25px ${theme.glow}`;
+                    } else {
+                        el.style.borderColor = '#0f111a';
+                        el.style.boxShadow = 'none';
+                    }
+                }
+            });
 
             const member = guildMembers.find(m => m.id === id);
             if (!member) return;
@@ -695,19 +790,16 @@
 
             const theme = classThemes[member.class] || classThemes.dealer;
 
-            // 1. 이름 (Name)
             const detailName = document.getElementById('detailName');
             detailName.textContent = member.name;
             detailName.style.textShadow = `0 0 12px ${theme.glow}`;
 
-            // 뱃지 및 분류
             const badge = document.getElementById('detailClassBadge');
             badge.textContent = member.class.toUpperCase();
             badge.style.color = theme.hex;
             badge.style.backgroundColor = theme.rgba;
             badge.style.borderColor = theme.hex;
 
-            // 2. 이미지 (Image - 3:4 고정 프레임 연동)
             const detailImg = document.getElementById('detailImage');
             const placeholder = document.getElementById('imagePlaceholder');
             const placeholderIcon = document.getElementById('imagePlaceholderIcon');
@@ -724,15 +816,13 @@
                 placeholderIcon.style.textShadow = `0 0 20px ${theme.glow}`;
             }
 
-            // 3. 투력 (Combat Power - 'cp' 텍스트 소멸)
             document.getElementById('detailPower').textContent = Number(member.power).toLocaleString();
 
-            // 4. 지향색 (Preferred Colors - 다중 칩 렌더러 구현)
             const colorsContainer = document.getElementById('detailColorsContainer');
             colorsContainer.innerHTML = '';
             
             if (member.colors && member.colors.length > 0) {
-                member.colors.forEach((colorHex, idx) => {
+                member.colors.forEach((colorHex) => {
                     const colorChip = document.createElement('div');
                     colorChip.className = "flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded border border-slate-900";
                     colorChip.innerHTML = `
@@ -745,14 +835,12 @@
                 colorsContainer.innerHTML = `<span class="text-[10px] text-slate-600 italic">등록된 지향색이 없습니다.</span>`;
             }
 
-            // 5. 한마디 (Motto)
             document.getElementById('detailDesc').textContent = `"${member.desc}"`;
 
-            // 운영자 보안 승인 상태 동기화
             applyAdminVisibility();
         }
 
-        // 이미지 로딩 실패 백백가드 처리
+        // 이미지 로딩 에러 시 대체 플레이스홀더를 보여주는 함수 (ReferenceError가 발생하지 않도록 전역 함수 바인딩 완료)
         function handleImageLoadError(imgEl) {
             imgEl.classList.add('hidden');
             const placeholder = document.getElementById('imagePlaceholder');
@@ -768,7 +856,6 @@
             }
         }
 
-        // 상세 모달 창 스위치 온오프
         function closeDetailModal() {
             const modal = document.getElementById('detailModal');
             const panel = document.getElementById('detailPanel');
@@ -783,7 +870,6 @@
             }, 250);
         }
 
-        // 실시간 누적 스펙 카운트
         function updateStatistics() {
             document.getElementById('statTotal').textContent = guildMembers.length;
             document.getElementById('statDealer').textContent = guildMembers.filter(m => m.class === 'dealer').length;
@@ -791,7 +877,7 @@
             document.getElementById('statHealer').textContent = guildMembers.filter(m => m.class === 'healer').length;
         }
 
-        // 운영자 설정 다중 지향색 로우 필드 동적 바인딩
+        // 지향색 등록용 로우 동적 추가
         function addFormColorRow(hexVal = '#00f0ff') {
             const container = document.getElementById('formColorsContainer');
             const rowId = 'color_row_' + Date.now() + Math.random().toString(36).substr(2, 5);
@@ -833,7 +919,6 @@
             }
         }
 
-        // 인원 등록 모달 오프너
         function openAddModal() {
             document.getElementById('addModal').classList.remove('hidden');
             document.getElementById('modalTitle').textContent = "System Deployment Registry";
@@ -845,7 +930,6 @@
             addFormColorRow('#00f0ff');
         }
 
-        // 정보 수정 모달 기동
         function triggerEditMember() {
             const member = guildMembers.find(m => m.id === systemState.selectedCardId);
             if (!member) return;
@@ -879,9 +963,13 @@
             document.getElementById('formColorsContainer').innerHTML = '';
         }
 
-        // CRUD: 생성 및 수정 제어 라우터
-        function submitMemberForm(e) {
+        // CRUD: 생성(Create) 및 수정(Update)을 Firestore 서버에 반영
+        async function submitMemberForm(e) {
             e.preventDefault();
+            if (!currentUser) {
+                showToast("시스템 미인증 상태입니다.");
+                return;
+            }
 
             const memberIdVal = document.getElementById('formMemberId').value;
             const name = document.getElementById('formName').value;
@@ -904,55 +992,40 @@
                 healer: '✨'
             };
 
-            if (memberIdVal) {
-                // 수정
-                const memberIndex = guildMembers.findIndex(m => m.id === parseInt(memberIdVal));
-                if (memberIndex !== -1) {
-                    guildMembers[memberIndex] = {
-                        ...guildMembers[memberIndex],
-                        name,
-                        image,
-                        power,
-                        class: className,
-                        desc,
-                        visual: visuals[className],
-                        colors: colors
-                    };
-                    showToast(`${name} 길드원의 프로필 정보가 성공적으로 수정되었습니다.`);
-                }
-            } else {
-                // 신규
+            const targetId = memberIdVal ? memberIdVal : Date.now().toString();
+            
+            // Strict Path 정책 준수: artifacts/{appId}/public/data/members/{docId}
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', targetId);
+
+            const data = {
+                name,
+                image,
+                power,
+                class: className,
+                desc,
+                visual: visuals[className],
+                colors: colors
+            };
+
+            if (!memberIdVal) {
                 const now = new Date();
-                const joinDate = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
-                
-                const newMember = {
-                    id: Date.now(),
-                    name,
-                    image,
-                    power,
-                    class: className,
-                    desc,
-                    visual: visuals[className],
-                    colors: colors,
-                    joinDate
-                };
-                guildMembers.push(newMember);
-                systemState.selectedCardId = newMember.id;
-                showToast(`${name} 길드원의 프로필 데이터가 신규 배포되었습니다.`);
+                data.joinDate = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
             }
 
-            localStorage.setItem('guildMembers', JSON.stringify(guildMembers));
-            closeAddModal();
-            renderGrid();
-            
-            if (memberIdVal) {
-                selectMember(parseInt(memberIdVal));
-            } else {
-                selectMember(systemState.selectedCardId);
+            try {
+                await setDoc(docRef, data, { merge: true });
+                showToast(`${name} 길드원의 프로필 정보가 성공적으로 클라우드에 배치되었습니다.`);
+                closeAddModal();
+                if (!memberIdVal) {
+                    systemState.selectedCardId = isNaN(Number(targetId)) ? targetId : Number(targetId);
+                }
+            } catch (error) {
+                console.error("데이터 저장 중 오류가 발생했습니다:", error);
+                showToast("데이터 저장 실패. 권한 구성을 확인하세요.");
             }
         }
 
-        // CRUD: 제명 처리 루틴
+        // CRUD: 제명(Delete) 액션을 Firestore 서버에 실시간으로 하달
         let pendingDecommissionId = null;
 
         function requestDecommission() {
@@ -969,25 +1042,25 @@
             pendingDecommissionId = null;
         }
 
-        function executeDecommission() {
-            if (!pendingDecommissionId) return;
+        async function executeDecommission() {
+            if (!pendingDecommissionId || !currentUser) return;
 
-            const memberIndex = guildMembers.findIndex(m => m.id === pendingDecommissionId);
-            if (memberIndex !== -1) {
-                const name = guildMembers[memberIndex].name;
-                guildMembers.splice(memberIndex, 1);
-                localStorage.setItem('guildMembers', JSON.stringify(guildMembers));
-                
-                showToast(`${name} 길드원이 시스템 Roster에서 제명 및 무력화되었습니다.`);
+            const targetId = pendingDecommissionId.toString();
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', targetId);
+
+            try {
+                await deleteDoc(docRef);
+                showToast("길드원이 시스템 Roster에서 제명 및 무력화되었습니다.");
+            } catch (error) {
+                console.error("데이터 제명 중 오류가 발생했습니다:", error);
+                showToast("데이터 제명 실패.");
             }
 
             closeConfirmModal();
             closeDetailModal();
             systemState.selectedCardId = null;
-            renderGrid();
         }
 
-        // 하단 플로팅 토스트 공지
         function showToast(msg) {
             const toast = document.getElementById('toast');
             toast.textContent = msg;
@@ -997,11 +1070,40 @@
             }, 3000);
         }
 
-        // 윈도우 최초 진입 구동
-        window.onload = () => {
+        // 모듈 범위 내부 변수와 HTML 인라인 온클릭 이벤트 핸들러 글로벌 매핑 보장
+        window.toggleAdminMode = toggleAdminMode;
+        window.applyAdminVisibility = applyAdminVisibility;
+        window.renderGrid = renderGrid;
+        window.onSearchChange = onSearchChange;
+        window.onSortChange = onSortChange;
+        window.setFilter = setFilter;
+        window.selectMember = selectMember;
+        window.handleImageLoadError = handleImageLoadError;
+        window.closeDetailModal = closeDetailModal;
+        window.updateStatistics = updateStatistics;
+        window.addFormColorRow = addFormColorRow;
+        window.removeFormColorRow = removeFormColorRow;
+        window.syncColorRowText = syncColorRowText;
+        window.syncColorRowPicker = syncColorRowPicker;
+        window.openAddModal = openAddModal;
+        window.triggerEditMember = triggerEditMember;
+        window.closeAddModal = closeAddModal;
+        window.submitMemberForm = submitMemberForm;
+        window.requestDecommission = requestDecommission;
+        window.closeConfirmModal = closeConfirmModal;
+        window.executeDecommission = executeDecommission;
+        window.showToast = showToast;
+
+        // 브라우저 최초 구동 시 캔버스 초기화 및 사용자 익명 인증 활성화 가동
+        window.onload = async () => {
             initStarfield();
-            applyAdminVisibility();
-            renderGrid();
+            
+            // 이미지 에러 이벤트 리스너를 비동기식 모듈 환경에서 수동으로 완벽하게 매핑 (인라인 onerror ReferenceError 근본 해결)
+            document.getElementById('detailImage').addEventListener('error', function() {
+                handleImageLoadError(this);
+            });
+            
+            await initAuth();
         };
     </script>
 </body>

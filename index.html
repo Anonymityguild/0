@@ -403,7 +403,7 @@
     </div>
 
     <script>
-        // UTF-8 환경 한글 유실을 예방하기 위한 현대적인 Base64 전용 트파일러 헬퍼 함수
+        // UTF-8 환경 한글 유실을 예방하기 위한 현대적인 Base64 전용 트랜스파일러 헬퍼 함수
         function utf8_to_b64(str) {
             return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) {
                 return String.fromCharCode(parseInt(p1, 16));
@@ -717,17 +717,16 @@
                 return matchesFilter && matchesSearch;
             });
 
-            // [★ 정 정립 ★] 가입 순 ID 정렬 연산을 string 대신에 확실한 float 형식으로 변환하여 내림차순 정렬 처리
+            // [★ 정렬 연산 무결성 복원 ★] float 파싱 기반의 내림차순 정적 비교 규칙 확립
             processed.sort((a, b) => {
                 if (systemState.sortBy === 'name') {
                     return a.name.localeCompare(b.name, 'ko');
                 } else if (systemState.sortBy === 'power') {
                     return Number(b.power) - Number(a.power);
                 } else {
-                    // parseFloat을 통해 한 자리 정수 id("1", "2") 및 거대한 타임스탬프 문자열을 정교하게 숫자 연산으로 변환
                     const idA = parseFloat(a.id) || 0;
                     const idB = parseFloat(b.id) || 0;
-                    return idB - idA; // 최신 ID(더 큰 숫자 값)가 배열의 앞쪽으로 가도록 정립
+                    return idB - idA; // 최신 가입자(ID 값이 더 큰 멤버)가 무조건 첫 번째 인덱스에 자리잡도록 보정
                 }
             });
 
@@ -1012,10 +1011,12 @@
             document.getElementById('gitPat').value = localStorage.getItem('git_pat') || '';
         }
 
+        // 깃허브 원격 연동 모달 닫기
         function closeGitSettingsModal() {
             document.getElementById('gitSettingsModal').classList.add('hidden');
         }
 
+        // 깃허브 원격 연동 설정 저장
         function saveGitSettings(e) {
             e.preventDefault();
             
@@ -1028,7 +1029,7 @@
             closeGitSettingsModal();
         }
 
-        // 깃허브 API를 사용해 원격 레포지토리의 소스코드를 직접 패치하고 커밋하는 자동 동기화 엔진
+        // [핵심] 깃허브 API를 사용해 원격 레포지토리의 소스코드를 직접 패치하고 커밋하는 자동 동기화 엔진
         async function syncToGitHub(commitMsg) {
             const username = localStorage.getItem('git_username');
             const repo = localStorage.getItem('git_repo');
@@ -1186,6 +1187,7 @@
         // 제명 시 원격 깃허브 자동 동기화 호출 연동
         let pendingDecommissionId = null;
 
+        // [★ 복원 ★] 모달 연동 제명 요청 바인딩 활성화
         function requestDecommission() {
             const member = guildMembers.find(m => m.id === systemState.selectedCardId);
             if (!member) return;
@@ -1195,22 +1197,27 @@
             document.getElementById('confirmModal').classList.remove('hidden');
         }
 
+        // 제명 동기화 팝업 닫기
         function closeConfirmModal() {
             document.getElementById('confirmModal').classList.add('hidden');
             pendingDecommissionId = null;
         }
 
+        // [★ 해결 및 무결화 ★] 제명 처리 로직 완전 복원 및 동기화 구현
         async function executeDecommission() {
             if (!pendingDecommissionId) return;
 
             const member = guildMembers.find(m => m.id === pendingDecommissionId);
             const originalMembers = JSON.parse(JSON.stringify(guildMembers));
 
+            // 배열 내에서 영구 격리
             guildMembers = guildMembers.filter(m => m.id !== pendingDecommissionId);
 
+            // 로컬 스토리지 선반영 (낙관적 UI 활성화)
             localStorage.setItem('anonymity_guild_roster_static', JSON.stringify(guildMembers));
             renderGrid();
 
+            // 깃허브 원격 커밋 동시 트리거
             const success = await syncToGitHub(`Tactical Update: Decommission [${member ? member.name : ''}] completed.`);
 
             if (success) {
@@ -1218,6 +1225,7 @@
                 closeDetailModal();
                 systemState.selectedCardId = null;
             } else {
+                // 실패 시 복구 로직
                 guildMembers = originalMembers;
                 localStorage.setItem('anonymity_guild_roster_static', JSON.stringify(guildMembers));
                 renderGrid();

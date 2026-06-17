@@ -74,7 +74,27 @@
             border: 1px solid rgba(0, 240, 255, 0.35) !important;
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 240, 255, 0.2) !important;
         }
+
+        /* [★ 상태 동기화 초정밀 최적화 ★] 브라우저가 레이아웃을 계산하기 전 초기 화면 깜빡임을 무조건 차단하기 위한 상위 우선순위 스타일 */
+        .session-passed #introOverlay {
+            display: none !important;
+        }
+        .session-passed #appContent {
+            display: flex !important;
+        }
     </style>
+    <!-- [★ 렌더 차단 기법 적용 ★] 바디 요소를 화면에 렌더링하기 전 동기 방식으로 세션 상태를 검출하여 정렬 깜빡임 현상을 원천 방어합니다. -->
+    <script>
+        (function() {
+            try {
+                if (sessionStorage.getItem('anonymity_intro_passed') === 'true') {
+                    document.documentElement.classList.add('session-passed');
+                }
+            } catch (e) {
+                console.error("Critical path rendering initialization failed: ", e);
+            }
+        })();
+    </script>
 </head>
 <body class="min-h-screen text-slate-100 grid-pattern relative">
 
@@ -455,60 +475,6 @@
             }).join(''));
         }
         window.b64_to_utf8 = b64_to_utf8;
-
-        // [★ 인트로 관문 액션 헬퍼 ★] 승인 획득 시 매끄럽게 페이드 아웃 후 본체를 기동하는 루틴
-        function proceedToDatabase() {
-            const intro = document.getElementById('introOverlay');
-            const content = document.getElementById('appContent');
-            const card = document.getElementById('introCard');
-            
-            card.classList.remove('scale-100');
-            card.classList.add('scale-95');
-            intro.style.opacity = '0';
-            
-            // 세션 스토리지에 관문 통과 상태 기록
-            sessionStorage.setItem('anonymity_intro_passed', 'true');
-            
-            setTimeout(() => {
-                intro.classList.add('hidden');
-                content.classList.remove('hidden');
-                // 렌더 패스를 재동기화하여 그리드가 레이아웃에 정상 안착되도록 가속
-                if (typeof renderGrid === 'function') {
-                    renderGrid();
-                }
-            }, 1000);
-        }
-        window.proceedToDatabase = proceedToDatabase;
-
-        // [★ 예외 제어 폐쇄 루틴 ★] 브라우저 보안 장벽에 의한 창 닫기 차단을 극복하는 안전 셧다운 구현
-        function terminateConnection() {
-            const card = document.getElementById('introCard');
-            
-            card.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-            card.innerHTML = `
-                <div class="absolute inset-0 grid-pattern opacity-5 pointer-events-none"></div>
-                <div class="relative flex items-center justify-center py-4">
-                    <div class="w-16 h-16 rounded-full bg-red-950/25 border border-red-500/30 flex items-center justify-center text-red-500 text-2xl animate-ping">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                        </svg>
-                    </div>
-                </div>
-                <div class="flex flex-col gap-2">
-                    <h2 class="text-xs font-black tracking-widest text-red-500 uppercase font-mono">CONNECTION TERMINATED</h2>
-                    <h1 class="text-base font-bold text-slate-200 tracking-wide leading-snug">안전 채널 격리가 완료되었습니다.<br>이 브라우저 탭을 안전하게 닫으셔도 좋습니다.</h1>
-                    <p class="text-[9px] text-slate-600 font-mono tracking-wider uppercase mt-1">SECURE PROTOCOL DEPLOYED. ENCRYPTION KEYS DESTROYED.</p>
-                </div>
-            `;
-            
-            // window.close() 전송 시도 (사용자 진입 형태에 따라 지원 여부가 달라지므로 try-catch 격리)
-            try {
-                window.close();
-            } catch (e) {
-                console.warn("Browser security blocked automatic tab closure.");
-            }
-        }
-        window.terminateConnection = terminateConnection;
 
         // 전역 알림 토스트 출력 모듈
         function showToast(msg) {

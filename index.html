@@ -78,17 +78,18 @@
         }
 
 
-        /* 모바일 상세 팝업 반응형 보정: 작은 화면에서 위아래가 잘리지 않고 내부 스크롤되도록 처리 */
+        /* 상세 팝업 반응형 보정: 스크롤은 패널 내부에서만 발생하도록 단일화 */
         #detailModal {
-            overflow-y: auto;
-            align-items: flex-start !important;
+            overflow: hidden;
+            align-items: center !important;
         }
 
         #detailPanel {
             max-height: calc(100dvh - 32px);
             overflow-y: auto;
-            margin-top: 16px;
-            margin-bottom: 16px;
+            overscroll-behavior: contain;
+            margin-top: 0;
+            margin-bottom: 0;
         }
 
         @media (max-width: 640px) {

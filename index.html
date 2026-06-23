@@ -77,6 +77,64 @@
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 240, 255, 0.2) !important;
         }
 
+
+        /* 모바일 상세 팝업 반응형 보정: 작은 화면에서 위아래가 잘리지 않고 내부 스크롤되도록 처리 */
+        #detailModal {
+            overflow-y: auto;
+            align-items: flex-start !important;
+        }
+
+        #detailPanel {
+            max-height: calc(100dvh - 32px);
+            overflow-y: auto;
+            margin-top: 16px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 640px) {
+            #detailModal {
+                padding: 12px !important;
+            }
+
+            #detailPanel {
+                width: min(100%, 420px);
+                max-width: 100%;
+                max-height: calc(100dvh - 24px);
+                padding: 16px !important;
+                gap: 14px !important;
+                border-radius: 14px;
+            }
+
+            #detailPanel .aspect-\[3\/4\] {
+                max-width: min(58vw, 220px) !important;
+            }
+
+            #detailPower {
+                font-size: clamp(1.25rem, 8vw, 2rem) !important;
+                line-height: 1.1;
+                word-break: break-all;
+            }
+
+            #detailName {
+                font-size: 1rem !important;
+                line-height: 1.25;
+            }
+
+            #detailColorsContainer {
+                gap: 8px !important;
+            }
+        }
+
+        @media (max-height: 740px) {
+            #detailPanel .aspect-\[3\/4\] {
+                max-width: min(46vw, 180px) !important;
+            }
+
+            #detailPanel {
+                gap: 12px !important;
+            }
+        }
+
         /* 상태 동기화 초정밀 최적화: 브라우저가 레이아웃을 계산하기 전 초기 화면 깜빡임을 무조건 차단하기 위한 상위 우선순위 스타일 */
         .session-passed #introOverlay {
             display: none !important;

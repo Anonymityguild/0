@@ -127,7 +127,7 @@
             </div>
 
             <div id="introActions" class="flex gap-4 pt-2">
-                <button id="terminateBtn" onclick="terminateConnection()" class="flex-1 py-3 bg-red-950/20 border border-red-900/40 hover:bg-red-950/50 text-red-400 hover:text-red-200 text-[10px] font-black tracking-widest uppercase rounded transition-all duration-300">
+                <button id="terminateBtn" onclick="terminateConnection()" class="flex-1 py-3 bg-red-950/20 border border-red-900/40 hover:bg-red-900/30 text-red-400 hover:text-red-200 text-[10px] font-black tracking-widest uppercase rounded transition-all duration-300">
                     NO (거부)
                 </button>
                 <button id="proceedBtn" onclick="proceedToDatabase()" class="flex-1 py-3 bg-cyan-950/30 border border-cyan-500/40 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-200 text-[10px] font-black tracking-widest uppercase rounded transition-all duration-300 shadow-[0_0_15px_rgba(0,240,255,0.1)]">
@@ -476,69 +476,6 @@
         }
         window.b64_to_utf8 = b64_to_utf8;
 
-        // [★ 인트로 관문 액션 헬퍼 ★] 승인 획득 시 매끄럽게 페이드 아웃 후 본체를 기동하는 루틴
-        function proceedToDatabase() {
-            const intro = document.getElementById('introOverlay');
-            const card = document.getElementById('introCard');
-            const content = document.getElementById('appContent');
-            
-            card.classList.remove('scale-100');
-            card.classList.add('scale-95');
-            
-            // 검은색 화면 플래시 현상 방지: 본문 레이어를 미리 flex로 띄워 투명도 페이드 뒤에 즉시 노출
-            if (content) {
-                content.classList.remove('hidden');
-                content.classList.add('flex');
-            }
-            if (intro) {
-                intro.style.opacity = '0';
-            }
-            
-            // 세션 스토리지에 관문 통과 상태 기록
-            sessionStorage.setItem('anonymity_intro_passed', 'true');
-            
-            setTimeout(() => {
-                document.documentElement.classList.add('session-passed');
-                if (intro) {
-                    intro.classList.add('hidden');
-                }
-                // 렌더 패스를 재동기화하여 그리드가 레이아웃에 정상 안착되도록 가속
-                if (typeof renderGrid === 'function') {
-                    renderGrid();
-                }
-            }, 1000);
-        }
-        window.proceedToDatabase = proceedToDatabase;
-
-        // [★ 예외 제어 폐쇄 루틴 ★] 브라우저 보안 장벽에 의한 창 닫기 차단을 극복하는 안전 셧다운 구현
-        function terminateConnection() {
-            const card = document.getElementById('introCard');
-            
-            card.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-            card.innerHTML = `
-                <div class="absolute inset-0 grid-pattern opacity-5 pointer-events-none"></div>
-                <div class="relative flex items-center justify-center py-4">
-                    <div class="w-16 h-16 rounded-full bg-red-950/25 border border-red-500/30 flex items-center justify-center text-red-500 text-2xl animate-ping">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                        </svg>
-                    </div>
-                </div>
-                <div class="flex flex-col gap-2">
-                    <h2 class="text-xs font-black tracking-widest text-red-500 uppercase font-mono">CONNECTION TERMINATED</h2>
-                    <h1 class="text-base font-bold text-slate-200 tracking-wide leading-snug">안전 채널 격리가 완료되었습니다.<br>이 브라우저 탭을 안전하게 닫으셔도 좋습니다.</h1>
-                    <p class="text-[9px] text-slate-600 font-mono tracking-wider uppercase mt-1">SECURE PROTOCOL DEPLOYED. ENCRYPTION KEYS DESTROYED.</p>
-                </div>
-            `;
-            
-            try {
-                window.close();
-            } catch (e) {
-                console.warn("Browser security blocked automatic tab closure.");
-            }
-        }
-        window.terminateConnection = terminateConnection;
-
         // 전역 알림 토스트 출력 모듈
         function showToast(msg) {
             const toast = document.getElementById('toast');
@@ -842,8 +779,7 @@
                 return matchesFilter && matchesSearch;
             });
 
-            // [★ 정렬 최신순 역전 근본 조치 ★] 
-            // 정수 및 타임스탬프 형태의 ID를 parseFloat로 명확히 숫자로 변경하여 정밀한 내림차순(최신 가입자가 1순위 노출) 정립
+            // [★ 정렬 연산 무결성 복원 ★] float 파싱 기반의 내림차순 정적 비교 규칙 확립
             processed.sort((a, b) => {
                 if (systemState.sortBy === 'name') {
                     return a.name.localeCompare(b.name, 'ko');
@@ -852,7 +788,7 @@
                 } else {
                     const idA = parseFloat(a.id) || 0;
                     const idB = parseFloat(b.id) || 0;
-                    return idB - idA; // 최신 가입자(숫자가 큰 고유 타임스탬프)를 맨 앞으로 전진
+                    return idB - idA; // 최신 ID(더 큰 숫자 값)가 배열의 앞쪽으로 가도록 정립
                 }
             });
 
@@ -1294,7 +1230,6 @@
                 guildMembers.push(data);
             }
 
-            // 영구 데이터 오염을 예방하기 위해 세션 범위 버퍼에만 임시 수정 상태 기록
             sessionStorage.setItem('anonymity_guild_roster_temp', JSON.stringify(guildMembers));
             renderGrid();
 
@@ -1349,6 +1284,55 @@
                 guildMembers = originalMembers;
                 sessionStorage.setItem('anonymity_guild_roster_temp', JSON.stringify(guildMembers));
                 renderGrid();
+            }
+        }
+
+        // [★ 인트로 관문 액션 헬퍼 ★] 승인 획득 시 매끄럽게 페이드 아웃 후 본체를 기동하는 루틴
+        function proceedToDatabase() {
+            const intro = document.getElementById('introOverlay');
+            const card = document.getElementById('introCard');
+            
+            card.classList.remove('scale-100');
+            card.classList.add('scale-95');
+            intro.style.opacity = '0';
+            
+            // 세션 스토리지에 관문 통과 상태 기록
+            sessionStorage.setItem('anonymity_intro_passed', 'true');
+            
+            setTimeout(() => {
+                document.documentElement.classList.add('session-passed');
+                // 렌더 패스를 재동기화하여 그리드가 레이아웃에 정상 안착되도록 가속
+                if (typeof renderGrid === 'function') {
+                    renderGrid();
+                }
+            }, 1000);
+        }
+
+        // [★ 예외 제어 폐쇄 루틴 ★] 브라우저 보안 장벽에 의한 창 닫기 차단을 극복하는 안전 셧다운 구현
+        function terminateConnection() {
+            const card = document.getElementById('introCard');
+            
+            card.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+            card.innerHTML = `
+                <div class="absolute inset-0 grid-pattern opacity-5 pointer-events-none"></div>
+                <div class="relative flex items-center justify-center py-4">
+                    <div class="w-16 h-16 rounded-full bg-red-950/25 border border-red-500/30 flex items-center justify-center text-red-500 text-2xl animate-ping">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <h2 class="text-xs font-black tracking-widest text-red-500 uppercase font-mono">CONNECTION TERMINATED</h2>
+                    <h1 class="text-base font-bold text-slate-200 tracking-wide leading-snug">안전 채널 격리가 완료되었습니다.<br>이 브라우저 탭을 안전하게 닫으셔도 좋습니다.</h1>
+                    <p class="text-[9px] text-slate-600 font-mono tracking-wider uppercase mt-1">SECURE PROTOCOL DEPLOYED. ENCRYPTION KEYS DESTROYED.</p>
+                </div>
+            `;
+            
+            try {
+                window.close();
+            } catch (e) {
+                console.warn("Browser security blocked automatic tab closure.");
             }
         }
 

@@ -136,6 +136,58 @@
             }
         }
 
+
+        /* 전체 레이아웃 반응형 안정화: 모바일/PC에서 카드 누락처럼 보이는 잘림 방지 */
+        html, body {
+            min-height: 100%;
+        }
+
+        #appContent {
+            width: 100%;
+        }
+
+        #cardGrid {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+
+        @media (max-width: 640px) {
+            #cardGrid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px;
+            }
+
+            main {
+                padding-left: 12px !important;
+                padding-right: 12px !important;
+                padding-top: 16px !important;
+            }
+
+            header .max-w-7xl {
+                padding-left: 12px !important;
+                padding-right: 12px !important;
+            }
+
+            #filterContainer {
+                width: 100%;
+                overflow-x: auto;
+                scrollbar-width: none;
+            }
+
+            #filterContainer::-webkit-scrollbar {
+                display: none;
+            }
+
+            .char-card:hover {
+                transform: none;
+            }
+        }
+
+        @media (max-width: 380px) {
+            #cardGrid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         /* 상태 동기화 초정밀 최적화: 브라우저가 레이아웃을 계산하기 전 초기 화면 깜빡임을 무조건 차단하기 위한 상위 우선순위 스타일 */
         .session-passed #introOverlay {
             display: none !important;
@@ -210,7 +262,7 @@
                     <p class="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">Guild Roster Database</p>
                 </div>
                 
-                <div class="flex items-center gap-4">
+                <div class="flex items-center justify-center flex-wrap gap-3 sm:gap-4">
                     <!-- 운영자 모드 승인 스위치 -->
                     <div class="flex items-center gap-2 bg-slate-950/80 px-3 py-1.5 rounded-full border border-slate-900">
                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Admin Access</span>
@@ -221,7 +273,7 @@
                     </div>
 
                     <!-- 운영자 전용 제어 단추 구역 (평소 숨김) -->
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center justify-center flex-wrap gap-2">
                         <button id="adminGitSettingsBtn" onclick="openGitSettingsModal()" class="hidden px-3 py-2 bg-slate-950 hover:bg-slate-900 text-cyan-400 font-bold text-xs tracking-wider rounded border border-cyan-950 transition-all duration-300 flex items-center gap-2">
                             GITHUB SYNC (깃허브 연동)
                         </button>
@@ -245,7 +297,7 @@
                 <!-- 필터 및 검색 제어 영역 (8열) -->
                 <div class="lg:col-span-8 flex flex-col md:flex-row items-stretch md:items-center gap-3">
                     <!-- 역할 필터링 탭 -->
-                    <div class="flex p-1 bg-slate-950/90 rounded border border-slate-900 gap-1 self-start" id="filterContainer">
+                    <div class="flex p-1 bg-slate-950/90 rounded border border-slate-900 gap-1 self-start max-w-full" id="filterContainer">
                         <button onclick="setFilter('all')" class="filter-btn px-3 py-1.5 rounded text-[10px] font-bold tracking-wider transition-all duration-300 bg-cyan-500/20 text-cyan-400 border border-cyan-500/20" data-filter="all">ALL</button>
                         <button onclick="setFilter('dealer')" class="filter-btn px-3 py-1.5 rounded text-[10px] font-bold tracking-wider transition-all duration-300 text-slate-500 hover:text-white" data-filter="dealer">DEALER</button>
                         <button onclick="setFilter('tanker')" class="filter-btn px-3 py-1.5 rounded text-[10px] font-bold tracking-wider transition-all duration-300 text-slate-500 hover:text-white" data-filter="tanker">TANKER</button>
@@ -296,7 +348,7 @@
             </div>
 
             <!-- 길드원 슬롯 배치 영역 (각 카드는 3:4 프레임 고정 반영) -->
-            <div id="cardGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div id="cardGrid" class="grid gap-6">
                 <!-- JS 로더에 의해 동적 생성 -->
             </div>
         </main>
@@ -829,13 +881,11 @@
 
         // 동기화 설계: 물리적인 로컬 스토리지를 우회하고 휘발성 세션 스토리지를 통하여 데이터 수술을 진행합니다.
         function loadDatabase() {
-            const tempCached = sessionStorage.getItem('anonymity_guild_roster_temp');
-            
-            if (tempCached) {
-                guildMembers = JSON.parse(tempCached);
-            } else {
-                guildMembers = JSON.parse(JSON.stringify(defaultMembers));
-            }
+            // 항상 GitHub에 커밋된 최신 defaultMembers를 기준으로 렌더링합니다.
+            // 기존 sessionStorage 우선 로딩 방식은 모바일 인앱 브라우저/캐시 환경에서
+            // 예전 임시 데이터가 남아 일부 길드원이 누락되어 보이는 원인이 될 수 있습니다.
+            sessionStorage.removeItem('anonymity_guild_roster_temp');
+            guildMembers = JSON.parse(JSON.stringify(defaultMembers));
             renderGrid();
         }
 
@@ -936,7 +986,7 @@
                         }
                         <div class="${member.image ? 'hidden' : ''} absolute inset-0 flex items-center justify-center text-4xl select-none opacity-20" style="color: ${theme.hex}; text-shadow: 0 0 15px ${theme.glow};">${member.visual}</div>
                     </div>
-                    <div class="p-4 bg-slate-950/90 flex flex-col gap-1">
+                    <div class="p-3 sm:p-4 bg-slate-950/90 flex flex-col gap-1">
                         <span class="text-[8px] font-black uppercase tracking-widest" style="color: ${theme.hex}">${member.class.toUpperCase()}</span>
                         <div class="text-sm font-black text-white tracking-wide">${member.name}</div>
                         <div class="flex items-center justify-between mt-1 pt-1.5 border-t border-slate-900/50">

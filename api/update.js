@@ -62,8 +62,9 @@ export default async function handler(req, res) {
         const getData = await getRes.json();
         const sha = getData.sha;
         
-        // base64로 넘어온 원본 소스코드를 안전하게 문자열로 복호화 (멀티바이트 한글 깨짐 방지)
-        const rawContent = Buffer.from(getData.content, 'base64').toString('utf-8');
+        // base64로 넘어온 원본 소스코드를 안전하게 문자열로 복호화 (멀티바이트 한글 깨짐 및 파싱 에러 방지)
+        const cleanContent = getData.content.replace(/\s/g, '');
+        const rawContent = Buffer.from(cleanContent, 'base64').toString('utf-8');
 
         // 4. 주석 정규식 앵커에 데이터를 인젝션 및 치환 가공
         const regex = /(\/\* GITHUB_DATA_START \*\/)[\s\S]*?(\/\* GITHUB_DATA_END \*\/)/;

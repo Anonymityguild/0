@@ -82,6 +82,14 @@
         }
 
 
+
+        /* 상세 팝업 전투력 폰트 크기 균형 보정 */
+        #detailPower {
+            font-size: 0.75rem !important;
+            line-height: 1.4;
+            letter-spacing: 0.04em;
+        }
+
         /* 상세 팝업 반응형 보정: 스크롤은 패널 내부에서만 발생하도록 단일화 */
         #detailModal {
             overflow: hidden;
@@ -115,8 +123,8 @@
             }
 
             #detailPower {
-                font-size: clamp(1.25rem, 8vw, 2rem) !important;
-                line-height: 1.1;
+                font-size: 0.75rem !important;
+                line-height: 1.4;
                 word-break: break-all;
             }
 
@@ -397,7 +405,7 @@
             <div class="bg-slate-950/30 border border-white/5 backdrop-blur-md p-3 rounded-lg z-10 relative">
                 <div class="text-[9px] text-slate-500 font-bold uppercase tracking-wider font-mono">전투력 (POWER)</div>
                 <div class="flex items-baseline gap-1.5 mt-1">
-                    <span id="detailPower" class="text-2xl font-black text-white tracking-widest font-mono">0</span>
+                    <span id="detailPower" class="text-xs font-bold text-slate-300 tracking-wide font-mono">0</span>
                 </div>
             </div>
 
